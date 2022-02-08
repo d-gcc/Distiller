@@ -110,7 +110,7 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         optimizer.step()
 
     insert_SQL("Inception", config.pid, config.experiment, epoch, "epoch", "None", config.bits, config.distiller,
-                   0, loss_cls, "CE", 0, "KL", batch_loss, "Metric 3", 0, "Metric 4") 
+                   0, total_ce_loss, "CE", total_kl, "KL", 0, "Metric 3", 0, "Metric 4") 
             
             
 def evaluate(val_loader, model, config):

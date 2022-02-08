@@ -123,7 +123,7 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
 
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd','kd_baseline']
+    parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd','kd_baseline'])
     parser.add_argument('--kd_temperature', type=float, default=4)
     parser.add_argument('--teachers', type=int, default=1)
 

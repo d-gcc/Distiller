@@ -72,7 +72,6 @@ def RunStudent(model, config):
         savepath = Path('./teachers/Inception_'+config.experiment+ '_' + str(teacher) + '_teacher.pkl')
         teacher_config = copy.deepcopy(config)
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
-        print(config.bit3)
         model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
@@ -124,13 +123,13 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
 
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd')
+    parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd','kd_baseline']
     parser.add_argument('--kd_temperature', type=float, default=4)
     parser.add_argument('--teachers', type=int, default=1)
 
-    parser.add_argument('--w_ce', type=float, default=0.1, help='weight for cross entropy')
+    parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
     parser.add_argument('--w_kl', type=float, default=0.9, help='weight for KL')
-    parser.add_argument('--w_other', type=float, default=1, help='weight for other losses')
+    parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)
@@ -171,7 +170,14 @@ if __name__ == '__main__':
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
         model_t = model_t.to(config.device)
-        RunTeacher(model_t, config)
+        
+        for teacher in range(0,config.teachers):
+            config.init_seed = teacher
+            np.random.seed(teacher)
+            torch.manual_seed(teacher)
+            torch.cuda.manual_seed(teacher)
+            torch.backends.cudnn.deterministic = True
+            RunTeacher(model_t, config)
     else:
         model_s = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,

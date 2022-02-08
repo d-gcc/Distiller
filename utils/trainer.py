@@ -93,16 +93,14 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
             loss_div = criterion_div(logit_s, logit_list)
             batch_loss += loss_div
            
-
-        if opt.distiller == 'kd' or opt.distiller == 'kd_unified' or opt.distiller == 'kd_single':
-            loss_kd = 0
+        loss_kd = 0
               
         if len(target.shape) == 1:
             loss_cls = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')        
 
-        loss = opt.gamma * loss_cls + opt.alpha * batch_loss + opt.beta * loss_kd  
+        loss = opt.w_ce * loss_cls + opt.w_kl * batch_loss + opt.w_other * loss_kd  
         
         total_kl += batch_loss
         total_ce_loss += loss_cls
@@ -137,30 +135,19 @@ def evaluate(val_loader, model, config):
 
         true_np, preds_np = np.concatenate(true_list), np.concatenate(preds_list)
         accuracy = accuracy_score(*_to_1d_binary(true_np, preds_np), normalize=True)
-        #print('Accuracy: ' + str(top1))
-        inferenceTime = time.time() 
-        #print('Inference time in seconds: ' + str(inferenceTime-trainingTime))
-        roc = 0 #inferenceTime-trainingTime #roc_auc_score(true_np, preds_np)
-        pr = 0 #average_precision_score(true_np, preds_np)
+
+        try:
+            roc_auc = roc_auc_score(true_np, preds_np)
+            pr_auc = average_precision_score(true_np, preds_np)
+        except Exception as e:
+            print("PR and ROC one class undefinition")
 
 
-        if config.bits == 32:
-            type_q = "Full precision"
+        if config.distiller == 'teacher':
+            type_q = "Full precision: " + str(config.bits)
         else:
-            if config.power_two:
-                if config.additive:
-                    type_q = "Additive power-of-two"
-                else:
-                    type_q = "Power-of-two"
-
-            else:
-                type_q = "Uniform"
-
-#         insert_SQL(config.model_s, config.pid, config.experiment, config.num_classes, type_q, 
-#                    config.bits, config.distill, 1, 1, top1, 
-#                    roc, timeBefore)        
-        #insert_SQL(config.model_s, config.pid, config.experiment, config.sax_symbols, type_q, config.bits, 
-        #           config.distill, config.std_dev, config.paa_segments, top1, config.epochs, config.teacher_number)       
+            type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
+     
         insert_SQL("Inception", config.pid, config.experiment, 12, "Parameter", type_q, config.bits, config.distiller,
                    accuracy, 13, "Metric 1", 14, "Metric 2", 15, "Metric 3", 16, "Metric 4") 
         

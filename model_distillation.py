@@ -75,7 +75,7 @@ def RunStudent(model, config):
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
         
-        model_t.load_state_dict(torch.load(savepath))
+        model_t.load_state_dict(torch.load(savepath,map_location=config.device))
         model_t.eval()
         model_t = model_t.to(config.device)
         feat_t, _ = model_t(data)
@@ -105,6 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('--bit1', type=int, default=13)
     parser.add_argument('--bit2', type=int, default=12)
     parser.add_argument('--bit3', type=int, default=8)
+    parser.add_argument('--std_dev', type=float, default=0)
     parser.add_argument('--power_two', type=str2bool, default=False)
     parser.add_argument('--additive', type=str2bool, default=False)
     parser.add_argument('--grad_scale', type=int, default=None)
@@ -126,15 +127,14 @@ if __name__ == '__main__':
     parser.add_argument('--kd_temperature', type=float, default=4)
     parser.add_argument('--teachers', type=int, default=1)
 
-    parser.add_argument('--alpha', type=float, default=0.1, help='weight for cross entropy')
-    parser.add_argument('--beta', type=float, default=0.9, help='weight for KL')
-    parser.add_argument('--gamma', type=float, default=1, help='weight for other losses')
+    parser.add_argument('--w_ce', type=float, default=0.1, help='weight for cross entropy')
+    parser.add_argument('--w_kl', type=float, default=0.9, help='weight for KL')
+    parser.add_argument('--w_other', type=float, default=1, help='weight for other losses')
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)
     parser.add_argument('--sax_symbols', type=int, default=8)
     parser.add_argument('--paa_segments', type=int, default=10)
-    parser.add_argument('--std_dev', type=float, default=0)
     
     config = parser.parse_args()
     

@@ -32,7 +32,7 @@ def train_single(epoch, train_loader, val_loader, model, optimizer, config):
         optimizer.step()
 
 
-def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, opt):
+def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config):
     """One epoch distillation"""
 
     for module in module_list:
@@ -49,19 +49,19 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
     
     total_kl = 0
     total_ce_loss = 0
-    total_teacher_losses = np.empty(opt.teachers)
+    total_teacher_losses = np.empty(config.teachers)
     
     for idx, data in enumerate(train_loader):
         batch_loss = 0
-        teacher_losses = np.empty(opt.teachers)
+        teacher_losses = np.empty(config.teachers)
         
         input, target = data
         index = len(input)
 
         input = input.float()
 
-        input = input.to(opt.device)
-        target = target.to(opt.device)
+        input = input.to(config.device)
+        target = target.to(config.device)
 
 
         # ===================forward=====================
@@ -69,9 +69,9 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         #logit_s = model_s(input)
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
-        if opt.distiller == 'kd':
+        if config.distiller == 'kd':
             count_t = 0
-            for teacher in range(0,opt.teachers):
+            for teacher in range(0,config.teachers):
                 count_t += 1
                 model_t = module_list[teacher+1]
 
@@ -81,9 +81,9 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
                 loss_div = criterion_div(logit_s, logit_t)
                 batch_loss += loss_div
             
-        elif opt.distiller == 'kd_baseline':
+        elif config.distiller == 'kd_baseline':
             logit_list = []
-            for teacher in range(0,opt.teachers):
+            for teacher in range(0,config.teachers):
                 model_t = module_list[teacher+1]
 
                 with torch.no_grad():
@@ -100,7 +100,7 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')        
 
-        loss = opt.w_ce * loss_cls + opt.w_kl * batch_loss + opt.w_other * loss_kd  
+        loss = config.w_ce * loss_cls + config.w_kl * batch_loss + config.w_other * loss_kd  
         
         total_kl += batch_loss
         total_ce_loss += loss_cls
@@ -108,6 +108,9 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+    insert_SQL("Inception", config.pid, config.experiment, epoch, "epoch", "None", config.bits, config.distiller,
+                   accuracy, loss_cls, "CE", 0, "KL", batch_loss, "Metric 3", 0, "Metric 4") 
             
             
 def evaluate(val_loader, model, config):

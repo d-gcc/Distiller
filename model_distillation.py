@@ -63,7 +63,7 @@ def RunStudent(model, config):
     if config.distiller == 'kd':
         criterion_list.append(DistillKL(config.kd_temperature))
     elif config.distiller == 'kd_baseline':
-        criterion_list.append(KDEnsemble(config.kd_temperature))
+        criterion_list.append(KDEnsemble(config.kd_temperature, config.device))
 
     optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
     

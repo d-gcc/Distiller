@@ -69,7 +69,6 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         #logit_s = model_s(input)
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
-        
         if opt.distiller == 'kd':
             count_t = 0
             for teacher in range(0,opt.teachers):
@@ -81,27 +80,18 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
 
                 loss_div = criterion_div(logit_s, logit_t)
                 batch_loss += loss_div
-            batch_loss = batch_loss * 100
             
-        elif opt.distiller == 'kd_unified':
+        elif opt.distiller == 'kd_baseline':
             logit_list = []
-            for teacher in range(0,opt.paa_segments):
-                if teacher in [0,2,4,9]:
-                    model_t = module_list[teacher+1]
+            for teacher in range(0,opt.teachers):
+                model_t = module_list[teacher+1]
 
-                    with torch.no_grad():
-                        feat_t, logit_t = model_t(input)
-                        logit_list.append(logit_t)
+                with torch.no_grad():
+                    feat_t, logit_t = model_t(input)
+                    logit_list.append(logit_t)
 
             loss_div = criterion_div(logit_s, logit_list)
             batch_loss += loss_div
-
-        elif opt.distiller == 'kd_single':
-            model_t = module_list[opt.teacher_number]
-
-            with torch.no_grad():
-                feat_t, logit_t = model_t(input)
-            batch_loss = criterion_div(logit_s, logit_t)
            
 
         if opt.distiller == 'kd' or opt.distiller == 'kd_unified' or opt.distiller == 'kd_single':
@@ -112,7 +102,6 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')        
 
-        #loss = opt.gamma * loss_cls + opt.alpha * loss_div + opt.beta * loss_kd  
         loss = opt.gamma * loss_cls + opt.alpha * batch_loss + opt.beta * loss_kd  
         
         total_kl += batch_loss

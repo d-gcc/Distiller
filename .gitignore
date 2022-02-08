@@ -1,0 +1,8 @@
+dataset/
+img_outputs/
+legacy_code/
+teachers/
+*.xlsx
+MSSQL.txt
+*.ipynb
+**/__pycache__/

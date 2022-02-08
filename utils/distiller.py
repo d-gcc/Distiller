@@ -19,14 +19,15 @@ class DistillKL(nn.Module):
 
 class KDEnsemble(nn.Module):
     """Distilling the Knowledge in a Neural Network"""
-    def __init__(self, T):
+    def __init__(self, T, device):
         super(KDEnsemble, self).__init__()
         self.T = T
+        self.device = device
 
     def forward(self, y_s, y_t):
         p_s = F.log_softmax(y_s/self.T, dim=1)
         if y_t:
-            p_t = torch.zeros(y_t[0].size()).to("cuda:0")
+            p_t = torch.zeros(y_t[0].size()).to(self.device)
             for y_ti in y_t:
                 p_tf = F.softmax(y_ti/self.T, dim=1)
                 p_t = torch.add(p_t,p_tf)

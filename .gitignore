@@ -6,3 +6,4 @@ teachers/
 MSSQL.txt
 *.ipynb
 **/__pycache__/
+*.db

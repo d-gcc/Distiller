@@ -8,6 +8,7 @@ import argparse
 import torch
 import numpy as np
 import pandas as pd
+import copy
 import os
 import torch.optim as optim
 import torch.nn.functional as F
@@ -61,7 +62,7 @@ def RunStudent(model, config):
     
     if config.distiller == 'kd':
         criterion_list.append(DistillKL(config.kd_temperature))
-    elif config.distiller == 'kd_unified':
+    elif config.distiller == 'kd_baseline':
         criterion_list.append(KDEnsemble(config.kd_temperature))
 
     optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
@@ -69,8 +70,9 @@ def RunStudent(model, config):
     # Teachers
     for teacher in range(0,config.teachers):
         savepath = Path('./teachers/Inception_'+config.experiment+ '_' + str(teacher) + '_teacher.pkl')
-        teacher_config = config
+        teacher_config = copy.deepcopy(config)
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
+        print(config.bit3)
         model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
@@ -84,7 +86,6 @@ def RunStudent(model, config):
     module_list.to(config.device)
     criterion_list.to(config.device)
     train_loader, val_loader, test_loader = get_loaders(config)
-
     for epoch in range(1, config.epochs + 1):
         train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config)
     
@@ -123,7 +124,7 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
 
     # Distillation
-    parser.add_argument('--distiller', type=str, default='teacher')
+    parser.add_argument('--distiller', type=str, default='kd')
     parser.add_argument('--kd_temperature', type=float, default=4)
     parser.add_argument('--teachers', type=int, default=1)
 

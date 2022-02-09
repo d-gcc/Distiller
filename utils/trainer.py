@@ -122,7 +122,6 @@ def evaluate(val_loader, model, config):
             with torch.no_grad():
                 true_list.append(y.cpu().detach().numpy())
                 _, preds = model(x)
-                #preds = model_eval(x)
                 if len(y.shape) == 1:
                     preds = torch.sigmoid(preds)
                 else:

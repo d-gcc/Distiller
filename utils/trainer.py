@@ -145,7 +145,7 @@ def evaluate(val_loader, model, config):
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
-                       accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "Metric 3", 0, "Metric 4", 0) 
+                       accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "Teachers", config.teachers, "Metric 4", 0) 
      
 
         

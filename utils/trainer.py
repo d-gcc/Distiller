@@ -33,7 +33,6 @@ def train_single(epoch, train_loader, val_loader, model, optimizer, config):
 
 
 def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config):
-    """One epoch distillation"""
 
     for module in module_list:
         module.eval()
@@ -64,9 +63,7 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         target = target.to(config.device)
 
 
-        # ===================forward=====================
         feat_s, logit_s = model_s(input)
-        #logit_s = model_s(input)
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
         if config.distiller == 'kd':
@@ -109,16 +106,12 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         loss.backward()
         optimizer.step()
 
-    insert_SQL("Inception", config.pid, config.experiment, epoch, "epoch", "None", config.bits, config.distiller,
-                   0, total_ce_loss, "CE", total_kl, "KL", 0, "Metric 3", 0, "Metric 4") 
+    insert_SQL("Inception", config.pid, config.experiment, epoch, "epoch", "Losses", config.bits, config.distiller,
+                   0, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "CE", total_ce_loss, "KL", total_kl) 
             
             
 def evaluate(val_loader, model, config):
-
-    # switch to evaluate mode
     model.eval()
-
-    #model = model_quantized
 
     model_eval = model
     trainingTime = time.time() 
@@ -148,10 +141,13 @@ def evaluate(val_loader, model, config):
 
         if config.distiller == 'teacher':
             type_q = "Full precision: " + str(config.bits)
+            insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
+                       accuracy, "Seed", config.init_seed, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
+            insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
+                       accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "Metric 3", 0, "Metric 4", 0) 
      
-        insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
-                   accuracy, 0, "Metric 1", 0, "Metric 2", 0, "Metric 3", 0, "Metric 4") 
+
         
         return accuracy

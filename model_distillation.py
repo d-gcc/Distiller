@@ -216,5 +216,4 @@ if __name__ == '__main__':
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=config)
         model_s = model_s.to(config.device)
-        RunStudent(model_s, config)
-
+        StudentDistillation(model_s, config)

@@ -97,7 +97,8 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')        
 
-        loss = config.w_ce * loss_cls + config.w_kl * batch_loss + config.w_other * loss_kd  
+        #loss = config.w_ce * loss_cls + config.w_kl * batch_loss + config.w_other * loss_kd 
+        loss = config.w_ce * loss_cls + 1/config.teachers * batch_loss + config.w_other * loss_kd 
         
         total_kl += batch_loss
         total_ce_loss += loss_cls
@@ -106,8 +107,8 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         loss.backward()
         optimizer.step()
 
-    insert_SQL("Inception", config.pid, config.experiment, epoch, "epoch", "Losses", config.bits, config.distiller,
-                   0, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "CE", total_ce_loss, "KL", total_kl) 
+    #insert_SQL("Inception", config.pid, config.experiment, epoch, "epoch", "Losses", config.bits, config.distiller,
+    #               0, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "CE", total_ce_loss, "KL", total_kl) 
             
             
 def evaluate(val_loader, model, config):
@@ -145,7 +146,7 @@ def evaluate(val_loader, model, config):
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
-                       accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "Teachers", config.teachers, "Metric 4", 0) 
+                       accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, " ".join(str(e) for e in config.teacher_setting), config.teachers, "Metric 4", 0) 
      
 
         

@@ -46,7 +46,9 @@ def RunTeacher(model, config):
 # In[3]:
 
 
-def RunStudent(model, config):
+def RunStudent(model, config, teachers):
+    config.teachers = len(teachers)
+    config.teacher_setting = teachers
     data = torch.randn(7, 1, 400).to(config.device) 
 
     model_s = model
@@ -68,7 +70,7 @@ def RunStudent(model, config):
     optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
     
     # Teachers
-    for teacher in range(0,config.teachers):
+    for teacher in teachers:
         savepath = Path('./teachers/Inception_'+config.experiment+ '_' + str(teacher) + '_teacher.pkl')
         teacher_config = copy.deepcopy(config)
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
@@ -89,6 +91,34 @@ def RunStudent(model, config):
         train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config)
     
     return evaluate(test_loader, model_s, config)
+
+
+# In[ ]:
+
+
+def remove_elements(x):
+    return [[el for el in x if el!=x[i]] for i in range(len(x))]
+
+def recursive_groups(max_accuracy, current_teachers):
+    subgroups = remove_elements(current_teachers)
+    for subgroup in subgroups:
+        pivot_accuracy = RunStudent(model_s, config, subgroup)
+        if pivot_accuracy > max_accuracy:
+            max_accuracy = pivot_accuracy
+            if len(subgroup) > 2:
+                recursive_groups(max_accuracy,subgroup)
+    return max_accuracy
+
+def StudentDistillation(model, config):
+    max_accuracy = pivot_accuracy = 0
+
+    teachers = [i for i in range(0,config.teachers)]
+    max_accuracy = RunStudent(model_s, config, teachers)
+    
+    if config.leaving_out:
+        max_accuracy = recursive_groups(max_accuracy, teachers)
+        
+    return max_accuracy
 
 
 # In[4]:
@@ -123,13 +153,16 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
 
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd','kd_baseline'])
+    parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd', 'kd_baseline'])
     parser.add_argument('--kd_temperature', type=float, default=4)
     parser.add_argument('--teachers', type=int, default=1)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
-    parser.add_argument('--w_kl', type=float, default=0.9, help='weight for KL')
+    parser.add_argument('--w_kl', type=float, default=0.1, help='weight for KL')
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
+    
+    # Leaving-out retraining
+    parser.add_argument('--leaving_out', type=str2bool, default=False)
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)

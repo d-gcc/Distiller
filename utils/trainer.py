@@ -4,6 +4,7 @@ import sys
 import time
 import torch
 import numpy as np
+import torch
 import torch.nn.functional as F
 import os
 
@@ -32,7 +33,7 @@ def train_single(epoch, train_loader, val_loader, model, optimizer, config):
         optimizer.step()
 
 
-def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config):
+def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config, teacher_weights=None):
 
     for module in module_list:
         module.eval()
@@ -45,14 +46,14 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
     model_s = module_list[0]
     model_t = module_list[-1]
 
-    
     total_kl = 0
     total_ce_loss = 0
+    
     total_teacher_losses = np.empty(config.teachers)
     
     for idx, data in enumerate(train_loader):
         batch_loss = 0
-        teacher_losses = np.empty(config.teachers)
+        teachers_loss = torch.zeros(1, dtype=torch.float32)
         
         input, target = data
         index = len(input)
@@ -67,15 +68,15 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
         if config.distiller == 'kd':
-            count_t = 0
             for teacher in range(0,config.teachers):
-                count_t += 1
                 model_t = module_list[teacher+1]
 
                 with torch.no_grad():
                     feat_t, logit_t = model_t(input)
 
                 loss_div = criterion_div(logit_s, logit_t)
+                if config.learned_kl_w:
+                    teachers_loss = teachers_loss.add(torch.multiply(teacher_weights[teacher], loss_div))
                 batch_loss += loss_div
             
         elif config.distiller == 'kd_baseline':
@@ -89,7 +90,7 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
 
             loss_div = criterion_div(logit_s, logit_list)
             batch_loss += loss_div
-           
+            
         loss_kd = 0
               
         if len(target.shape) == 1:
@@ -97,19 +98,25 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')        
 
-        loss = config.w_ce * loss_cls + config.w_kl * batch_loss + config.w_other * loss_kd 
-        #loss = config.w_ce * loss_cls + 1/config.teachers * batch_loss + config.w_other * loss_kd 
-        
+        if config.learned_kl_w:
+            loss = config.w_ce * loss_cls + teachers_loss + config.w_other * loss_kd 
+        else:
+            #loss = config.w_ce * loss_cls + config.w_kl * batch_loss + config.w_other * loss_kd 
+            loss = config.w_ce * loss_cls + 1/config.teachers * batch_loss + config.w_other * loss_kd 
+
         total_kl += batch_loss
         total_ce_loss += loss_cls
         
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+    
+    if config.learned_kl_w:
+        with torch.no_grad():
+            teacher_weights -= config.lr * 0.1 * teacher_weights.grad
+            teacher_weights.grad = None
+        return teacher_weights
 
-    #insert_SQL("Inception", config.pid, config.experiment, epoch, "epoch", "Losses", config.bits, config.distiller,
-    #               0, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "CE", total_ce_loss, "KL", total_kl) 
-            
             
 def evaluate(val_loader, model, config):
     model.eval()
@@ -147,6 +154,12 @@ def evaluate(val_loader, model, config):
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
                        accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, " ".join(str(e) for e in config.teacher_setting), config.teachers, "Metric 4", 0) 
+         
+        elif config.learned_kl_w:
+            type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
+            teacher_w = " ".join(str(round(e, 3)) for e in config.teacher_weights)
+            insert_SQL("Inception", config.pid, config.experiment, teacher_w, "Teacher weights", type_q, config.bits, config.distiller,
+                       accuracy, "Temperature", config.kd_temperature, "init_seed", config.init_seed, "Teachers", config.teachers, "Metric 4", 0) 
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,

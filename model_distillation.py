@@ -87,13 +87,24 @@ def RunStudent(model, config, teachers):
     module_list.to(config.device)
     criterion_list.to(config.device)
     train_loader, val_loader, test_loader = get_loaders(config)
-    for epoch in range(1, config.epochs + 1):
-        train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config)
     
+    
+    if config.learned_kl_w:
+        teacher_weights = torch.rand(config.teachers, device = config.device, requires_grad=True)
+
+    for epoch in range(1, config.epochs + 1):
+        if config.learned_kl_w:
+            teacher_weights = train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, 
+                                              optimizer, config, teacher_weights)
+        else:
+            train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config)
+    
+    if config.learned_kl_w:
+        config.teacher_weights = teacher_weights.tolist()
     return evaluate(test_loader, model_s, config)
 
 
-# In[ ]:
+# In[4]:
 
 
 def remove_elements(x):
@@ -121,7 +132,7 @@ def StudentDistillation(model, config):
     return max_accuracy
 
 
-# In[4]:
+# In[5]:
 
 
 if __name__ == '__main__':    
@@ -155,7 +166,7 @@ if __name__ == '__main__':
     # Distillation
     parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd', 'kd_baseline'])
     parser.add_argument('--kd_temperature', type=float, default=4)
-    parser.add_argument('--teachers', type=int, default=1)
+    parser.add_argument('--teachers', type=int, default=2)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
     parser.add_argument('--w_kl', type=float, default=0.1, help='weight for KL')
@@ -163,6 +174,7 @@ if __name__ == '__main__':
     
     # Leaving-out retraining
     parser.add_argument('--leaving_out', type=str2bool, default=False)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)
@@ -217,3 +229,10 @@ if __name__ == '__main__':
                        num_pred_classes=config.num_classes,config=config)
         model_s = model_s.to(config.device)
         StudentDistillation(model_s, config)
+
+
+# In[ ]:
+
+
+
+

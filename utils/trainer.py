@@ -115,7 +115,7 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         with torch.no_grad():
             teacher_weights -= config.lr * teacher_weights.grad
             teacher_weights.grad = None
-            teacher_weights.div_(torch.norm(teacher_weights))
+            teacher_weights.div_(torch.norm(teacher_weights)) * -1
         return teacher_weights
 
             

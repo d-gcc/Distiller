@@ -53,7 +53,7 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
     
     for idx, data in enumerate(train_loader):
         batch_loss = 0
-        teachers_loss = torch.zeros(1, dtype=torch.float32)
+        teachers_loss = torch.zeros(1, dtype=torch.float32, device = config.device)
         
         input, target = data
         index = len(input)

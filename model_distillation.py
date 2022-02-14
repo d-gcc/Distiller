@@ -19,7 +19,7 @@ from utils.data import get_loaders
 from utils.util import str2bool, get_free_device 
 from utils.inception import InceptionModel
 from utils.distiller import DistillKL, KDEnsemble
-from utils.trainer import train_single, train_distilled, evaluate
+from utils.trainer import train_single, train_distilled, validation, evaluate
 
 
 # In[2]:
@@ -31,7 +31,7 @@ def RunTeacher(model, config):
     train_loader, val_loader, test_loader = get_loaders(config)
 
     for epoch in range(1, config.epochs + 1):
-        train_single(epoch, train_loader, val_loader, model, optimizer, config)
+        train_single(epoch, train_loader, model, optimizer, config)
     
     if (config.distiller == 'teacher'):
         if not os.path.exists('./teachers/'):
@@ -71,14 +71,14 @@ def RunStudent(model, config, teachers):
     
     # Teachers
     for teacher in teachers:
-        savepath = Path('./teachers/Inception_'+config.experiment+ '_' + str(teacher) + '_teacher.pkl')
+        savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
         teacher_config = copy.deepcopy(config)
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
         model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
         
-        model_t.load_state_dict(torch.load(savepath,map_location=config.device))
+        model_t.load_state_dict(torch.load(savepath, map_location=config.device))
         model_t.eval()
         model_t = model_t.to(config.device)
         feat_t, _ = model_t(data)
@@ -91,16 +91,16 @@ def RunStudent(model, config, teachers):
     
     if config.learned_kl_w:
         teacher_weights = torch.rand(config.teachers, device = config.device, requires_grad=True)
+    else:
+        teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True).squeeze()
 
     for epoch in range(1, config.epochs + 1):
+        train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_weights)
+
         if config.learned_kl_w:
-            teacher_weights = train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, 
-                                              optimizer, config, teacher_weights)
-        else:
-            train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config)
-    
-    if config.learned_kl_w:
-        config.teacher_weights = teacher_weights.tolist()
+            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer, config, teacher_weights)
+
+
     return evaluate(test_loader, model_s, config)
 
 
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('--teachers', type=int, default=2)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
-    parser.add_argument('--w_kl', type=float, default=0.1, help='weight for KL')
+    parser.add_argument('--w_kl', type=float, default=1, help='weight for KL')
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out retraining

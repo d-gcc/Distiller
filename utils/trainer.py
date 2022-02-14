@@ -13,7 +13,7 @@ from .util import _to_1d_binary, insert_SQL
 import copy
 
 
-def train_single(epoch, train_loader, val_loader, model, optimizer, config):
+def train_single(epoch, train_loader, model, optimizer, config):
     model.train()
 
     for idx, data in enumerate(train_loader):
@@ -31,9 +31,9 @@ def train_single(epoch, train_loader, val_loader, model, optimizer, config):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+    
 
-
-def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list, optimizer, config, teacher_weights=None):
+def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_weights=None):
 
     for module in module_list:
         module.eval()
@@ -49,6 +49,10 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
     total_kl = 0
     total_ce_loss = 0
     
+    with torch.no_grad():
+        teacher_weights = F.softmax(teacher_weights, dim=0)  
+    config.teacher_weights = teacher_weights.tolist()
+        
     total_teacher_losses = np.empty(config.teachers)
     
     for idx, data in enumerate(train_loader):
@@ -63,7 +67,6 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         input = input.to(config.device)
         target = target.to(config.device)
 
-
         feat_s, logit_s = model_s(input)
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
@@ -75,7 +78,7 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
                     feat_t, logit_t = model_t(input)
 
                 loss_div = criterion_div(logit_s, logit_t)
-                if config.learned_kl_w:
+                with torch.no_grad():
                     teachers_loss = teachers_loss.add(torch.multiply(teacher_weights[teacher], loss_div))
                 batch_loss += loss_div
             
@@ -96,13 +99,72 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         if len(target.shape) == 1:
             loss_cls = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
         else:
+            loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')       
+
+        loss = config.w_ce * loss_cls + config.w_kl * teachers_loss + config.w_other * loss_kd
+
+        total_kl += batch_loss
+        total_ce_loss += loss_cls
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+def validation(epoch, val_loader, module_list, criterion_list, optimizer, config, teacher_weights=None):
+
+    for module in module_list:
+        module.eval()
+
+    module_list[0].train()
+
+    criterion_cls = criterion_list[0]
+    criterion_div = criterion_list[1]
+
+    model_s = module_list[0]
+    model_t = module_list[-1]
+
+    total_kl = 0
+    total_ce_loss = 0
+    
+    total_teacher_losses = np.empty(config.teachers)
+    
+    for idx, data in enumerate(val_loader):
+        batch_loss = 0
+        teachers_loss = torch.zeros(1, dtype=torch.float32, device = config.device)
+        
+        input, target = data
+        index = len(input)
+
+        input = input.float()
+
+        input = input.to(config.device)
+        target = target.to(config.device)
+
+        with torch.no_grad():
+            feat_s, logit_s = model_s(input)
+
+        loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
+        
+        if config.distiller == 'kd':
+            for teacher in range(0,config.teachers):
+                model_t = module_list[teacher+1]
+
+                with torch.no_grad():
+                    feat_t, logit_t = model_t(input)
+
+                loss_div = criterion_div(logit_s, logit_t)
+                teachers_loss = teachers_loss.add(torch.multiply(teacher_weights[teacher], loss_div))
+                batch_loss += loss_div
+            
+        loss_kd = 0
+              
+        if len(target.shape) == 1:
+            loss_cls = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
+        else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')        
 
-        if config.learned_kl_w:
-            loss = config.w_ce * loss_cls + teachers_loss + config.w_other * loss_kd 
-        else:
-            #loss = config.w_ce * loss_cls + config.w_kl * batch_loss + config.w_other * loss_kd 
-            loss = config.w_ce * loss_cls + 1/config.teachers * batch_loss + config.w_other * loss_kd 
+
+        loss = config.w_ce * loss_cls + config.w_kl * teachers_loss + config.w_other * loss_kd 
 
         total_kl += batch_loss
         total_ce_loss += loss_cls
@@ -111,22 +173,21 @@ def train_distilled(epoch, train_loader, val_loader, module_list, criterion_list
         loss.backward()
         optimizer.step()
     
-    if config.learned_kl_w:
         with torch.no_grad():
-            teacher_weights += config.lr * teacher_weights.grad
+            teacher_weights -= config.lr * teacher_weights.grad
             teacher_weights.grad = None
-            teacher_weights.div_(torch.norm(teacher_weights))
-        return teacher_weights
+
+    return teacher_weights
 
             
-def evaluate(val_loader, model, config):
+def evaluate(test_loader, model, config):
     model.eval()
 
     model_eval = model
     trainingTime = time.time() 
     with torch.no_grad():
         true_list, preds_list = [], []
-        for x, y in val_loader:
+        for x, y in test_loader:
             x, y = x.to(config.device), y.to(config.device)
             with torch.no_grad():
                 true_list.append(y.cpu().detach().numpy())

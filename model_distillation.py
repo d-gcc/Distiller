@@ -100,7 +100,6 @@ def RunStudent(model, config, teachers):
         if config.learned_kl_w:
             teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer, config, teacher_weights)
 
-
     return evaluate(test_loader, model_s, config)
 
 
@@ -166,7 +165,7 @@ if __name__ == '__main__':
     # Distillation
     parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd', 'kd_baseline'])
     parser.add_argument('--kd_temperature', type=float, default=4)
-    parser.add_argument('--teachers', type=int, default=2)
+    parser.add_argument('--teachers', type=int, default=10)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
     parser.add_argument('--w_kl', type=float, default=1, help='weight for KL')

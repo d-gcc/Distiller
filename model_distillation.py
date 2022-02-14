@@ -18,7 +18,7 @@ from pathlib import Path
 from utils.data import get_loaders
 from utils.util import str2bool, get_free_device 
 from utils.inception import InceptionModel
-from utils.distiller import DistillKL, KDEnsemble
+from utils.distiller import DistillKL, KDEnsemble, TeacherWeights
 from utils.trainer import train_single, train_distilled, validation, evaluate
 
 
@@ -55,6 +55,7 @@ def RunStudent(model, config, teachers):
     model_s.eval()
     model_s = model_s.to(config.device)
     feat_s, _ = model_s(data)
+    params = list((model_s.parameters()))
 
     module_list = nn.ModuleList([])
     module_list.append(model_s)
@@ -67,8 +68,6 @@ def RunStudent(model, config, teachers):
     elif config.distiller == 'kd_baseline':
         criterion_list.append(KDEnsemble(config.kd_temperature, config.device))
 
-    optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
-    
     # Teachers
     for teacher in teachers:
         savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
@@ -84,6 +83,11 @@ def RunStudent(model, config, teachers):
         feat_t, _ = model_t(data)
         module_list.append(model_t)
 
+    weights_model = TeacherWeights(config)
+    module_list.append(weights_model)
+    params.extend(list(weights_model.parameters()))
+    optimizer = torch.optim.Adam(params, lr=config.lr)
+        
     module_list.to(config.device)
     criterion_list.to(config.device)
     train_loader, val_loader, test_loader = get_loaders(config)
@@ -95,10 +99,10 @@ def RunStudent(model, config, teachers):
         teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True).squeeze()
 
     for epoch in range(1, config.epochs + 1):
-        train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_weights)
+        train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
 
         if config.learned_kl_w:
-            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer, config, teacher_weights)
+            validation(epoch, val_loader, module_list, criterion_list, optimizer, config)
 
     return evaluate(test_loader, model_s, config)
 

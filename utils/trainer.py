@@ -219,7 +219,7 @@ def evaluate(test_loader, model, config):
          
         elif config.learned_kl_w:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
-            teacher_w = " ".join(str(round(e, 3)) for e in config.teacher_weights)
+            teacher_w = "-".join(str(round(e, 3)) for e in config.teacher_weights)
             insert_SQL("Inception", config.pid, config.experiment, "Teacher weights", teacher_w, type_q, config.bits, config.distiller,
                        accuracy, "Temperature", config.kd_temperature, "init_seed", config.init_seed, "Teachers", config.teachers, "Metric 4", 0) 
         else:

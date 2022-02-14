@@ -174,7 +174,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
         optimizer.step()
     
         with torch.no_grad():
-            teacher_weights += config.lr * teacher_weights.grad
+            teacher_weights -= config.lr * teacher_weights.grad
             teacher_weights.grad = None
 
     print(teacher_weights)

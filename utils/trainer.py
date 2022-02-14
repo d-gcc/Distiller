@@ -210,21 +210,21 @@ def evaluate(test_loader, model, config):
 
         if config.distiller == 'teacher':
             type_q = "Full precision: " + str(config.bits)
-            insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
+            insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
                        accuracy, "Seed", config.init_seed, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
         elif config.leaving_out:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
-            insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
+            insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
                        accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, " ".join(str(e) for e in config.teacher_setting), config.teachers, "Metric 4", 0) 
          
         elif config.learned_kl_w:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             teacher_w = " ".join(str(round(e, 3)) for e in config.teacher_weights)
-            insert_SQL("Inception", config.pid, config.experiment, teacher_w, "Teacher weights", type_q, config.bits, config.distiller,
+            insert_SQL("Inception", config.pid, config.experiment, "Teacher weights", teacher_w, type_q, config.bits, config.distiller,
                        accuracy, "Temperature", config.kd_temperature, "init_seed", config.init_seed, "Teachers", config.teachers, "Metric 4", 0) 
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
-            insert_SQL("Inception", config.pid, config.experiment, 0, "Parameter", type_q, config.bits, config.distiller,
+            insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
                        accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "Teachers", config.teachers, "Metric 4", 0) 
 
         

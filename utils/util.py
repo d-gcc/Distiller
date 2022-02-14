@@ -38,7 +38,7 @@ def local_db_backup(insert_sql):
     conn.close()
     
     
-def insert_SQL(model_name, pid, dataset, parameter, parameter_desc, type_q, bits, distillation, accuracy, metric_1_desc, metric_1, metric_2_desc, metric_2, metric_3_desc, metric_3, metric_4_desc, metric_4):
+def insert_SQL(model_name, pid, dataset, parameter_desc, parameter, type_q, bits, distillation, accuracy, metric_1_desc, metric_1, metric_2_desc, metric_2, metric_3_desc, metric_3, metric_4_desc, metric_4):
     insert_sql = """INSERT into quantization (model_name, pid, dataset, parameter, type, bits, distillation, metric_1, metric_2, accuracy, metric_3, metric_4, parameter_desc, metric_1_desc, metric_2_desc, metric_3_desc, metric_4_desc) VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')""".format(model_name, pid, dataset, parameter, type_q, bits, distillation, metric_1, metric_2, accuracy, metric_3, metric_4, parameter_desc, metric_1_desc, metric_2_desc, metric_3_desc, metric_4_desc)
     
     try:

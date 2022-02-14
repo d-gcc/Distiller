@@ -177,6 +177,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
             teacher_weights += config.lr * teacher_weights.grad
             teacher_weights.grad = None
 
+    print(teacher_weights)
     return teacher_weights
 
             

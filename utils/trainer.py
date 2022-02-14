@@ -52,6 +52,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
     with torch.no_grad():
         teacher_weights = F.softmax(teacher_weights, dim=0)  
     config.teacher_weights = teacher_weights.tolist()
+    print(teacher_weights)
         
     total_teacher_losses = np.empty(config.teachers)
     

@@ -11,9 +11,10 @@ class TeacherWeights(nn.Module):
         self.W.requires_grad = True
         
     def forward(self, x):
-        teacher_loss = torch.multiply(self.W, x)
+        teacher_weights = F.softmax(self.W, dim=0) 
+        teacher_loss = torch.multiply(teacher_weights, x)
 
-        return teacher_loss, F.softmax(self.W, dim=0) 
+        return teacher_loss, teacher_weights
 
 class DistillKL(nn.Module):
     """Distilling the Knowledge in a Neural Network"""

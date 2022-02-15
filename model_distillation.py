@@ -19,7 +19,7 @@ from utils.data import get_loaders
 from utils.util import str2bool, get_free_device 
 from utils.inception import InceptionModel
 from utils.distiller import DistillKL, KDEnsemble, TeacherWeights
-from utils.trainer import train_single, train_distilled, validation, evaluate
+from utils.trainer import train_single, train_distilled, validation, evaluate, evaluate_ensemble
 
 
 # In[2]:
@@ -138,6 +138,14 @@ def StudentDistillation(model, config):
 # In[5]:
 
 
+def TeacherEvaluation(config):
+    train_loader, val_loader, test_loader = get_loaders(config)
+    evaluate_ensemble(test_loader, config)
+
+
+# In[6]:
+
+
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--fff", help="A dummy argument for Jupyter", default="1")
@@ -167,7 +175,7 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
 
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd', 'kd_baseline'])
+    parser.add_argument('--distiller', type=str, default='ensemble_eval', choices=['teacher', 'kd', 'kd_baseline', 'ensemble_eval'])
     parser.add_argument('--kd_temperature', type=float, default=4)
     parser.add_argument('--teachers', type=int, default=10)
 
@@ -177,7 +185,7 @@ if __name__ == '__main__':
     
     # Leaving-out retraining
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)
@@ -226,6 +234,9 @@ if __name__ == '__main__':
             torch.cuda.manual_seed(teacher)
             torch.backends.cudnn.deterministic = True
             RunTeacher(model_t, config)
+            
+    elif config.distiller == 'ensemble_eval':
+        TeacherEvaluation(config)
     else:
         model_s = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,

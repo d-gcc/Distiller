@@ -8,8 +8,10 @@ import torch
 import torch.nn.functional as F
 import os
 
+from pathlib import Path
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
 from .util import _to_1d_binary, insert_SQL 
+from utils.inception import InceptionModel
 import copy
 
 
@@ -166,7 +168,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
         teacher_losses, ensemble_weights = model_weights(teachers_loss)
         ensemble_loss = torch.sum(teacher_losses)
 
-            
+
         loss = config.w_ce * loss_cls + config.w_kl * ensemble_loss + config.w_other * loss_kd
 
         total_kl += batch_loss
@@ -181,8 +183,6 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
 def evaluate(test_loader, model, config):
     model.eval()
 
-    model_eval = model
-    trainingTime = time.time() 
     with torch.no_grad():
         true_list, preds_list = [], []
         for x, y in test_loader:
@@ -227,6 +227,49 @@ def evaluate(test_loader, model, config):
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
                        accuracy, "Temperature", config.kd_temperature, "w_kl", config.w_kl, "Teachers", config.teachers, 
                        "Metric 4", 0) 
-
         
         return accuracy
+
+def evaluate_ensemble(test_loader, config):
+    
+    teachers = [i for i in range(0,config.teachers)]
+    ensemble_result = []
+    for teacher in teachers:
+        savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
+        teacher_config = copy.deepcopy(config)
+        teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
+        model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
+                       bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
+                       num_pred_classes=config.num_classes,config=teacher_config)
+
+        model_t.load_state_dict(torch.load(savepath, map_location=config.device))
+        model_t.eval()
+        model_t = model_t.to(config.device)
+
+        with torch.no_grad():
+            true_list, preds_list = [], []
+            for x, y in test_loader:
+                x, y = x.to(config.device), y.to(config.device)
+                with torch.no_grad():
+                    true_list.append(y.cpu().detach().numpy())
+                    _, preds = model_t(x)
+                    if len(y.shape) == 1:
+                        preds = torch.sigmoid(preds)
+                    else:
+                        preds = torch.softmax(preds, dim=-1)
+                    preds_list.append(preds)
+
+            true_np, preds_tensor = np.concatenate(true_list), torch.cat(preds_list)
+        ensemble_result.append(preds_tensor)
+
+    sum_probabilities = torch.stack(ensemble_result).sum(dim=0)
+    sum_np = sum_probabilities.cpu().detach().numpy()
+
+    accuracy = accuracy_score(*_to_1d_binary(true_np, sum_np), normalize=True)
+
+    type_q = "Full precision: " + str(config.bits)
+    insert_SQL("Inception", config.pid, config.experiment, "Teacher Ensemble", 0, type_q, config.bits, config.distiller,
+               accuracy, "Metric 1", 0, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
+
+    
+    return accuracy

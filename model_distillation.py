@@ -87,6 +87,7 @@ def RunStudent(model, config, teachers):
     module_list.append(weights_model)
     params.extend(list(weights_model.parameters()))
     optimizer = torch.optim.Adam(params, lr=config.lr)
+    optimizer2 = torch.optim.Adam(params, lr=0.05)
         
     module_list.to(config.device)
     criterion_list.to(config.device)
@@ -102,7 +103,7 @@ def RunStudent(model, config, teachers):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
 
         if config.learned_kl_w:
-            validation(epoch, val_loader, module_list, criterion_list, optimizer, config)
+            validation(epoch, val_loader, module_list, criterion_list, optimizer2, config)
 
     return evaluate(test_loader, model_s, config)
 
@@ -186,7 +187,7 @@ if __name__ == '__main__':
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
     parser.add_argument('--learned_kl_w', type=str2bool, default=True)
-    parser.add_argument('--random_init_w', type=str2bool, default=False)
+    parser.add_argument('--random_init_w', type=str2bool, default=True)
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)

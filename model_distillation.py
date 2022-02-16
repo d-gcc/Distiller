@@ -93,10 +93,10 @@ def RunStudent(model, config, teachers):
     train_loader, val_loader, test_loader = get_loaders(config)
     
     
-    if config.learned_kl_w:
+    if config.random_init_w:
         teacher_weights = torch.rand(config.teachers, device = config.device, requires_grad=True)
     else:
-        teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True).squeeze()
+        teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True)
 
     for epoch in range(1, config.epochs + 1):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
 
     # Distillation
-    parser.add_argument('--distiller', type=str, default='ensemble_eval', choices=['teacher', 'kd', 'kd_baseline', 'ensemble_eval'])
+    parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd', 'kd_baseline', 'ensemble_eval'])
     parser.add_argument('--kd_temperature', type=float, default=4)
     parser.add_argument('--teachers', type=int, default=10)
 
@@ -183,9 +183,10 @@ if __name__ == '__main__':
     parser.add_argument('--w_kl', type=float, default=1, help='weight for KL')
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
-    # Leaving-out retraining
+    # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--random_init_w', type=str2bool, default=False)
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)

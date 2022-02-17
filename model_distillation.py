@@ -92,10 +92,11 @@ def RunStudent(model, config, teachers):
     criterion_list.to(config.device)
     train_loader, val_loader, test_loader = get_loaders(config)
     
-    #if config.random_init_w:
-    #    teacher_weights = torch.rand(config.teachers, device = config.device, requires_grad=True)
-    #else:
-    teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True)
+    if config.learned_kl_w:
+        if config.random_init_w:
+            teacher_weights = torch.rand(config.teachers, device = config.device, requires_grad=True)
+        else:
+            teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True)
 
     for epoch in range(1, config.epochs + 1):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
@@ -184,7 +185,7 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=True)
     
     # SAX - PAA

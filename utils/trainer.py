@@ -35,7 +35,7 @@ def train_single(epoch, train_loader, model, optimizer, config):
         optimizer.step()
     
 
-def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_weights=None):
+def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config):
 
     for module in module_list:
         module.eval()
@@ -147,16 +147,15 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
 
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
-        if config.distiller == 'kd':
-            for teacher in range(0,config.teachers):
-                model_t = module_list[teacher+1]
+        for teacher in range(0,config.teachers):
+            model_t = module_list[teacher+1]
 
-                with torch.no_grad():
-                    feat_t, logit_t = model_t(input)
+            with torch.no_grad():
+                feat_t, logit_t = model_t(input)
 
-                loss_div = criterion_div(logit_s, logit_t)
-                teachers_loss[teacher] += loss_div
-                batch_loss += loss_div
+            loss_div = criterion_div(logit_s, logit_t)
+            teachers_loss[teacher] += loss_div
+            batch_loss += loss_div
             
         loss_kd = 0
               

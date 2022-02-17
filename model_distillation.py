@@ -185,7 +185,7 @@ if __name__ == '__main__':
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
     parser.add_argument('--learned_kl_w', type=str2bool, default=True)
-    parser.add_argument('--random_init_w', type=str2bool, default=True)
+    parser.add_argument('--random_init_w', type=str2bool, default=False)
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)

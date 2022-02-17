@@ -188,10 +188,10 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
-    parser.add_argument('--random_init_w', type=str2bool, default=False)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--random_init_w', type=str2bool, default=True)
     
-    parser.add_argument('--specific_teachers', type=str2bool, default=True)
+    parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")
     
     # SAX - PAA

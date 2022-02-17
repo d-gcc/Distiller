@@ -5,15 +5,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class TeacherWeights(nn.Module):
-    def __init__(self,config):
+    def __init__(self,config,weights):
         super(TeacherWeights,self).__init__()
-        self.W = torch.nn.Parameter(torch.rand(config.teachers))
+        self.W = torch.nn.Parameter(weights) #torch.nn.Parameter(torch.rand(config.teachers))
         self.W.requires_grad = True
         
     def forward(self, x):
-        teacher_loss = torch.multiply(self.W, x)
-
-        return teacher_loss, F.softmax(self.W, dim=0) 
+        teacher_weights = F.softmax(self.W, dim=0) 
+        teacher_loss = torch.multiply(teacher_weights, x)
+        return teacher_loss, teacher_weights
 
 class DistillKL(nn.Module):
     def __init__(self, T):

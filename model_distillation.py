@@ -192,7 +192,7 @@ if __name__ == '__main__':
     parser.add_argument('--random_init_w', type=str2bool, default=False)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=True)
-    parser.add_argument('--list_teachers', type=list, default=[0,1,2])
+    parser.add_argument('--list_teachers', type=str, default="0,1,2")
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)
@@ -200,6 +200,7 @@ if __name__ == '__main__':
     parser.add_argument('--paa_segments', type=int, default=10)
     
     config = parser.parse_args()
+    config.list_teachers = [int(item) for item in config.list_teachers.split(',')]
     
     if config.device == -1:
         config.device = torch.device(get_free_device())

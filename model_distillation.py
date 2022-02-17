@@ -87,23 +87,21 @@ def RunStudent(model, config, teachers):
     module_list.append(weights_model)
     params.extend(list(weights_model.parameters()))
     optimizer = torch.optim.Adam(params, lr=config.lr)
-    optimizer2 = torch.optim.Adam(params, lr=0.05)
         
     module_list.to(config.device)
     criterion_list.to(config.device)
     train_loader, val_loader, test_loader = get_loaders(config)
     
-    
-    if config.random_init_w:
-        teacher_weights = torch.rand(config.teachers, device = config.device, requires_grad=True)
-    else:
-        teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True)
+    #if config.random_init_w:
+    #    teacher_weights = torch.rand(config.teachers, device = config.device, requires_grad=True)
+    #else:
+    teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True)
 
     for epoch in range(1, config.epochs + 1):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
 
         if config.learned_kl_w:
-            validation(epoch, val_loader, module_list, criterion_list, optimizer2, config)
+            validation(epoch, val_loader, module_list, criterion_list, optimizer, config)
 
     return evaluate(test_loader, model_s, config)
 

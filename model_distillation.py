@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse
@@ -22,7 +22,7 @@ from utils.distiller import DistillKL, KDEnsemble, TeacherWeights
 from utils.trainer import train_single, train_distilled, validation, evaluate, evaluate_ensemble
 
 
-# In[2]:
+# In[ ]:
 
 
 def RunTeacher(model, config):
@@ -43,7 +43,7 @@ def RunTeacher(model, config):
     evaluate(test_loader, model, config)
 
 
-# In[3]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
@@ -106,7 +106,7 @@ def RunStudent(model, config, teachers):
     return evaluate(test_loader, model_s, config)
 
 
-# In[4]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -137,7 +137,7 @@ def StudentDistillation(model, config):
     return max_accuracy
 
 
-# In[5]:
+# In[ ]:
 
 
 def TeacherEvaluation(config):
@@ -145,7 +145,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[6]:
+# In[ ]:
 
 
 if __name__ == '__main__':    

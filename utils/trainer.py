@@ -102,7 +102,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             loss_cls = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')       
-            
+
         loss = config.w_ce * loss_cls + config.w_kl * ensemble_loss + config.w_other * loss_kd
 
         total_kl += batch_loss
@@ -167,7 +167,6 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
 
         teacher_losses, ensemble_weights = model_weights(teachers_loss)
         ensemble_loss = torch.sum(teacher_losses)
-
 
         loss = config.w_ce * loss_cls + config.w_kl * ensemble_loss + config.w_other * loss_kd
 

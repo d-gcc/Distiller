@@ -125,7 +125,10 @@ def recursive_groups(max_accuracy, current_teachers):
 def StudentDistillation(model, config):
     max_accuracy = pivot_accuracy = 0
 
-    teachers = [i for i in range(0,config.teachers)]
+    if config.specific_teachers:
+        teachers = config.list_teachers
+    else:    
+        teachers = [i for i in range(0,config.teachers)]
     max_accuracy = RunStudent(model_s, config, teachers)
     
     if config.leaving_out:
@@ -174,7 +177,8 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
 
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd', 'kd_baseline', 'ensemble_eval'])
+    parser.add_argument('--distiller', type=str, default='kd', 
+                        choices=['teacher', 'kd', 'kd_baseline', 'ensemble_eval'])
     parser.add_argument('--kd_temperature', type=float, default=10)
     parser.add_argument('--teachers', type=int, default=10)
 
@@ -184,8 +188,11 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
+    
+    parser.add_argument('--specific_teachers', type=str2bool, default=True)
+    parser.add_argument('--list_teachers', type=list, default=[0,1,2])
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)

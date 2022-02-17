@@ -176,7 +176,7 @@ if __name__ == '__main__':
 
     # Distillation
     parser.add_argument('--distiller', type=str, default='kd', choices=['teacher', 'kd', 'kd_baseline', 'ensemble_eval'])
-    parser.add_argument('--kd_temperature', type=float, default=4)
+    parser.add_argument('--kd_temperature', type=float, default=10)
     parser.add_argument('--teachers', type=int, default=10)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')

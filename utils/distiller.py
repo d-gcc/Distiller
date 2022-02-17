@@ -16,7 +16,6 @@ class TeacherWeights(nn.Module):
         return teacher_loss, F.softmax(self.W, dim=0) 
 
 class DistillKL(nn.Module):
-    """Distilling the Knowledge in a Neural Network"""
     def __init__(self, T):
         super(DistillKL, self).__init__()
         self.T = T
@@ -28,7 +27,6 @@ class DistillKL(nn.Module):
         return loss
 
 class KDEnsemble(nn.Module):
-    """Distilling the Knowledge in a Neural Network"""
     def __init__(self, T, device):
         super(KDEnsemble, self).__init__()
         self.T = T

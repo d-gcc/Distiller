@@ -7,7 +7,7 @@ import torch.nn.functional as F
 class TeacherWeights(nn.Module):
     def __init__(self,config,weights):
         super(TeacherWeights,self).__init__()
-        self.W = torch.nn.Parameter(weights) #torch.nn.Parameter(torch.rand(config.teachers))
+        self.W = torch.nn.Parameter(torch.rand(config.teachers)) #torch.nn.Parameter(weights)
         self.W.requires_grad = True
         
     def forward(self, x):

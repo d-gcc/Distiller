@@ -91,7 +91,8 @@ def RunStudent(model, config, teachers):
     weights_model = TeacherWeights(config, teacher_weights)
     module_list.append(weights_model)
     params.extend(list(weights_model.parameters()))
-    optimizer = torch.optim.SGD(params, lr=config.lr) #Adam ignores the bi-level
+    optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
+    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr) #Adam ignores the bi-level
         
     module_list.to(config.device)
     criterion_list.to(config.device)
@@ -100,7 +101,7 @@ def RunStudent(model, config, teachers):
     for epoch in range(1, config.epochs + 1):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         if config.learned_kl_w:
-            validation(epoch, val_loader, module_list, criterion_list, optimizer, config)
+            validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
 
     return evaluate(test_loader, model_s, config)
 

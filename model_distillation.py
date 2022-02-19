@@ -171,7 +171,7 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=5e-4)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--patience', type=int, default=1500)
-    parser.add_argument('--init_seed', type=int, default=3)
+    parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
 

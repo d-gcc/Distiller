@@ -47,7 +47,7 @@ def insert_SQL(model_name, pid, dataset, parameter_desc, parameter, type_q, bits
         with open('MSSQL.txt') as f:
             lines = f.read().splitlines()
 
-        connSQL = pymssql.connect(server=lines[0], user=lines[1], password=lines[2], database=lines[3], port = 8001)
+        connSQL = pymssql.connect(server=lines[0], user=lines[1], password=lines[2], database=lines[3])
         cursorSQL = connSQL.cursor()
         cursorSQL.execute(insert_sql)
         connSQL.commit()

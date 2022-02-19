@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import argparse
@@ -22,7 +22,7 @@ from utils.distiller import DistillKL, KDEnsemble, TeacherWeights
 from utils.trainer import train_single, train_distilled, validation, evaluate, evaluate_ensemble
 
 
-# In[ ]:
+# In[2]:
 
 
 def RunTeacher(model, config):
@@ -43,7 +43,7 @@ def RunTeacher(model, config):
     evaluate(test_loader, model, config)
 
 
-# In[ ]:
+# In[3]:
 
 
 def RunStudent(model, config, teachers):
@@ -84,14 +84,14 @@ def RunStudent(model, config, teachers):
         module_list.append(model_t)
 
     if config.random_init_w:
-        teacher_weights = torch.rand(config.teachers, device = config.device, requires_grad=True)
+        teacher_weights = torch.rand(config.teachers, device = config.device)
     else:
-        teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device,requires_grad=True).squeeze()
+        teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device).squeeze()
     
     weights_model = TeacherWeights(config, teacher_weights)
     module_list.append(weights_model)
     params.extend(list(weights_model.parameters()))
-    optimizer = torch.optim.Adam(params, lr=config.lr)
+    optimizer = torch.optim.SGD(params, lr=config.lr) #Adam ignores the bi-level
         
     module_list.to(config.device)
     criterion_list.to(config.device)
@@ -99,14 +99,13 @@ def RunStudent(model, config, teachers):
             
     for epoch in range(1, config.epochs + 1):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
-
         if config.learned_kl_w:
             validation(epoch, val_loader, module_list, criterion_list, optimizer, config)
 
     return evaluate(test_loader, model_s, config)
 
 
-# In[ ]:
+# In[4]:
 
 
 def remove_elements(x):
@@ -137,7 +136,7 @@ def StudentDistillation(model, config):
     return max_accuracy
 
 
-# In[ ]:
+# In[5]:
 
 
 def TeacherEvaluation(config):
@@ -145,7 +144,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[ ]:
+# In[6]:
 
 
 if __name__ == '__main__':    
@@ -172,14 +171,14 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=5e-4)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--patience', type=int, default=1500)
-    parser.add_argument('--init_seed', type=int, default=0)
+    parser.add_argument('--init_seed', type=int, default=3)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
 
     # Distillation
     parser.add_argument('--distiller', type=str, default='kd', 
                         choices=['teacher', 'kd', 'kd_baseline', 'ensemble_eval'])
-    parser.add_argument('--kd_temperature', type=float, default=10)
+    parser.add_argument('--kd_temperature', type=float, default=5)
     parser.add_argument('--teachers', type=int, default=10)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
@@ -189,7 +188,7 @@ if __name__ == '__main__':
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
     parser.add_argument('--learned_kl_w', type=str2bool, default=True)
-    parser.add_argument('--random_init_w', type=str2bool, default=True)
+    parser.add_argument('--random_init_w', type=str2bool, default=False)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")

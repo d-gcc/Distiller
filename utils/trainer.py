@@ -178,6 +178,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
         optimizer.step()
 
     config.teacher_weights = ensemble_weights.tolist()
+    return ensemble_weights.tolist()
 
             
 def evaluate(test_loader, model, config):
@@ -218,10 +219,10 @@ def evaluate(test_loader, model, config):
          
         elif config.learned_kl_w:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
-            teacher_w = "-".join(str(round(e, 3)) for e in config.teacher_weights)
+            teacher_w = "/".join(str(t) +":" + str(round(w, 3)) for w, t in zip(config.teacher_weights, config.teacher_setting))
             insert_SQL("Inception", config.pid, config.experiment, "Teacher weights", teacher_w, type_q, config.bits, 
                        config.distiller, accuracy, "Temperature", config.kd_temperature, "init_seed", config.init_seed, 
-                       "Teachers", config.teachers, "Epochs", config.epochs) 
+                       "Teachers", config.teachers, "Epochs", config.epochs)
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,

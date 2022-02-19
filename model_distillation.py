@@ -101,9 +101,9 @@ def RunStudent(model, config, teachers):
     for epoch in range(1, config.epochs + 1):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         if config.learned_kl_w:
-            validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
+            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
 
-    return evaluate(test_loader, model_s, config)
+    return evaluate(test_loader, model_s, config), dict(zip(teachers, teacher_weights))
 
 
 # In[4]:
@@ -112,15 +112,23 @@ def RunStudent(model, config, teachers):
 def remove_elements(x):
     return [[el for el in x if el!=x[i]] for i in range(len(x))]
 
-def recursive_groups(max_accuracy, current_teachers):
+def recursive_accuracy(max_accuracy, current_teachers):
     subgroups = remove_elements(current_teachers)
     for subgroup in subgroups:
-        pivot_accuracy = RunStudent(model_s, config, subgroup)
+        pivot_accuracy, _ = RunStudent(model_s, config, subgroup)
         if pivot_accuracy > max_accuracy:
             max_accuracy = pivot_accuracy
             if len(subgroup) > 2:
                 recursive_groups(max_accuracy,subgroup)
     return max_accuracy
+
+def recursive_weight(teacher_dic):
+    min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
+    del teacher_dic[min_key]
+    new_teachers = list(teacher_dic.keys())
+    _, new_weights = RunStudent(model_s, config, new_teachers)
+    if len(new_teachers) > 2:
+        recursive_weight(new_weights)
 
 def StudentDistillation(model, config):
     max_accuracy = pivot_accuracy = 0
@@ -129,10 +137,13 @@ def StudentDistillation(model, config):
         teachers = config.list_teachers
     else:    
         teachers = [i for i in range(0,config.teachers)]
-    max_accuracy = RunStudent(model_s, config, teachers)
+    max_accuracy, teacher_weights = RunStudent(model_s, config, teachers)
     
     if config.leaving_out:
-        max_accuracy = recursive_groups(max_accuracy, teachers)
+        max_accuracy = recursive_accuracy(max_accuracy, teachers)
+    
+    if config.leaving_weights:
+        recursive_weight(teacher_weights)
         
     return max_accuracy
 
@@ -170,7 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=5e-4)
-    parser.add_argument('--epochs', type=int, default=10)
+    parser.add_argument('--epochs', type=int, default=3)
     parser.add_argument('--patience', type=int, default=1500)
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
@@ -189,7 +200,8 @@ if __name__ == '__main__':
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
     parser.add_argument('--learned_kl_w', type=str2bool, default=True)
-    parser.add_argument('--random_init_w', type=str2bool, default=False)
+    parser.add_argument('--random_init_w', type=str2bool, default=True)
+    parser.add_argument('--leaving_weights', type=str2bool, default=True)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")
@@ -251,10 +263,4 @@ if __name__ == '__main__':
                        num_pred_classes=config.num_classes,config=config)
         model_s = model_s.to(config.device)
         StudentDistillation(model_s, config)
-
-
-# In[ ]:
-
-
-
 

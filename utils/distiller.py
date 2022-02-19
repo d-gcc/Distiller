@@ -11,8 +11,8 @@ class TeacherWeights(nn.Module):
         
     def forward(self, x):
         teacher_weights = F.softmax(self.W, dim=0) 
-        teacher_loss = torch.multiply(teacher_weights, x)
-        return teacher_loss, teacher_weights
+        teacher_loss = torch.multiply(self.W, x)
+        return teacher_loss, self.W
 
 class DistillKL(nn.Module):
     def __init__(self, T):

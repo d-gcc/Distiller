@@ -4,12 +4,7 @@
 # In[1]:
 
 
-import argparse
-import torch
-import numpy as np
-import pandas as pd
-import copy
-import os
+import argparse, torch, copy, os, numpy as np, pandas as pd
 import torch.optim as optim
 import torch.nn.functional as F
 from torch import nn
@@ -21,19 +16,29 @@ from utils.inception import InceptionModel
 from utils.distiller import DistillKL, KDEnsemble, TeacherWeights
 from utils.trainer import train_single, train_distilled, validation, evaluate, evaluate_ensemble
 
+from ax import *
+from ax.runners.synthetic import SyntheticRunner
+from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
+from ax.metrics.noisy_function import GenericNoisyFunctionMetric
+from ax.service.utils.report_utils import exp_to_df
+from botorch.models.gp_regression import SingleTaskGP
+from ax.utils.notebook.plotting import render, init_notebook_plotting
+from ax.plot.pareto_utils import compute_posterior_pareto_frontier
+from ax.plot.pareto_frontier import plot_pareto_frontier
+from plotly.offline import plot
+
 
 # In[2]:
 
 
 def RunTeacher(model, config):
-    
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     train_loader, val_loader, test_loader = get_loaders(config)
 
     for epoch in range(1, config.epochs + 1):
         train_single(epoch, train_loader, model, optimizer, config)
     
-    if (config.distiller == 'teacher'):
+    if (config.evaluation == 'teacher'):
         if not os.path.exists('./teachers/'):
             os.makedirs('./teachers/')
         model_name = f'Inception_{config.experiment}_{config.init_seed}_teacher.pkl'
@@ -73,6 +78,7 @@ def RunStudent(model, config, teachers):
         savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
         teacher_config = copy.deepcopy(config)
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
+        teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
         model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
@@ -112,23 +118,24 @@ def RunStudent(model, config, teachers):
 def remove_elements(x):
     return [[el for el in x if el!=x[i]] for i in range(len(x))]
 
-def recursive_accuracy(max_accuracy, current_teachers):
+def recursive_accuracy(model,config,max_accuracy,current_teachers):
     subgroups = remove_elements(current_teachers)
     for subgroup in subgroups:
-        pivot_accuracy, _ = RunStudent(model_s, config, subgroup)
+        pivot_accuracy, _ = RunStudent(model, config, subgroup)
         if pivot_accuracy > max_accuracy:
             max_accuracy = pivot_accuracy
             if len(subgroup) > 2:
-                recursive_groups(max_accuracy,subgroup)
+                recursive_groups(max_accuracy,config,subgroup)
     return max_accuracy
 
-def recursive_weight(teacher_dic):
+def recursive_weight(model,config,teacher_dic):
     min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
     del teacher_dic[min_key]
     new_teachers = list(teacher_dic.keys())
-    _, new_weights = RunStudent(model_s, config, new_teachers)
+    accuracy, new_weights = RunStudent(model, config, new_teachers)
     if len(new_teachers) > 2:
-        recursive_weight(new_weights)
+        accuracy = recursive_weight(model,config,new_weights)
+    return accuracy
 
 def StudentDistillation(model, config):
     max_accuracy = pivot_accuracy = 0
@@ -137,26 +144,192 @@ def StudentDistillation(model, config):
         teachers = config.list_teachers
     else:    
         teachers = [i for i in range(0,config.teachers)]
-    max_accuracy, teacher_weights = RunStudent(model_s, config, teachers)
+    max_accuracy, teacher_weights = RunStudent(model, config, teachers)
     
     if config.leaving_out:
-        max_accuracy = recursive_accuracy(max_accuracy, teachers)
+        max_accuracy = recursive_accuracy(model, config, max_accuracy, teachers)
     
     if config.leaving_weights:
-        recursive_weight(teacher_weights)
+        max_accuracy = recursive_weight(model, config, teacher_weights)
         
     return max_accuracy
-
-
-# In[5]:
-
 
 def TeacherEvaluation(config):
     train_loader, val_loader, test_loader = get_loaders(config)
     evaluate_ensemble(test_loader, config)
 
 
+# In[5]:
+
+
+class StudentBO():
+    def __init__(self, model, config):
+        self.model = model
+        self.config = config
+        self.init_teachers = self.config.teachers
+
+    def __call__(self,params):
+        self.config.bit1 = params["bit_1"]
+        self.config.bit2 = params["bit_2"]
+        self.config.bit3 = params["bit_3"]
+        self.config.layer1 = params["layers_1"]
+        self.config.layer2 = params["layers_2"]
+        self.config.layer3 = params["layers_3"]
+        max_accuracy = pivot_accuracy = 0
+
+        if self.config.specific_teachers:
+            teachers = config.list_teachers
+        else:    
+            teachers = [i for i in range(0,self.init_teachers)]
+        max_accuracy, teacher_weights = RunStudent(self.model, self.config, teachers)
+
+        if self.config.leaving_out:
+            max_accuracy = recursive_accuracy(self.model, self.config, max_accuracy, teachers)
+
+        if self.config.leaving_weights:
+            max_accuracy = recursive_weight(self.model, self.config, teacher_weights)
+
+        return max_accuracy
+
+def build_experiment(search_space,optimization_config):
+    experiment = Experiment(
+        name="pareto_experiment",
+        search_space=search_space,
+        optimization_config=optimization_config,
+        runner=SyntheticRunner(),
+    )
+    return experiment
+
+def initialize_experiment(experiment,N_INIT):
+    sobol = Models.SOBOL(search_space=experiment.search_space, seed=1234)
+
+    for _ in range(N_INIT):
+        trial = experiment.new_trial(sobol.gen(1))
+        trial.run()
+        trial.mark_completed()
+
+    return experiment.fetch_data()
+
+
 # In[6]:
+
+
+class MetricAccuracy(Metric):
+    def fetch_trial_data(self, trial):  
+        records = []
+        for arm_name, arm in trial.arms_by_name.items():
+            params = arm.parameters
+            records.append({
+                "arm_name": arm_name,
+                "metric_name": self.name,
+                "trial_index": trial.index,
+                "mean": student_bo(params),
+                "sem": 0,
+            })
+        return Data(df=pd.DataFrame.from_records(records))
+    
+class MetricCost(Metric):
+    def fetch_trial_data(self, trial):  
+        records = []
+        for arm_name, arm in trial.arms_by_name.items():
+            params = arm.parameters
+            bit_cost = params["layers_1"] * params["bit_1"] + params["layers_2"] * params["bit_2"] + params["layers_3"] * params["bit_3"]
+            records.append({
+                "arm_name": arm_name,
+                "metric_name": self.name,
+                "trial_index": trial.index,
+                "mean": bit_cost,
+                "sem": 0,
+            })
+        return Data(df=pd.DataFrame.from_records(records))
+
+
+# In[7]:
+
+
+def BayesianOptimization(config):
+    config.layer1 = config.layer2 = config.layer3 = 3
+    model_s = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
+                   bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
+                   num_pred_classes=config.num_classes,config=config)
+    model_s = model_s.to(config.device)
+    student_bo = StudentBO(model_s, config)
+    
+    bit_1=ChoiceParameter(name="bit_1", values=[2,3,4,5,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_2=ChoiceParameter(name="bit_2", values=[2,3,4,5,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_3=ChoiceParameter(name="bit_3", values=[2,3,4,5,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_1=ChoiceParameter(name="layers_1", values=[3,4,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_2=ChoiceParameter(name="layers_2", values=[3,4,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_3=ChoiceParameter(name="layers_3", values=[3,4,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+
+    search_space = SearchSpace(parameters=[bit_1, bit_2, bit_3, layers_1, layers_2, layers_3])
+    
+    metric_accuracy = GenericNoisyFunctionMetric("accuracy", f=student_bo, noise_sd=0.0, lower_is_better=False)
+
+    #metric_accuracy2 = MetricAccuracy(name="accuracy2",lower_is_better=False)
+    metric_cost = MetricCost(name="cost",lower_is_better=True)
+
+    objectives = MultiObjective(objectives=[Objective(metric=metric_accuracy), Objective(metric=metric_cost)])
+
+    objective_thresholds = [
+        ObjectiveThreshold(metric=metric_accuracy, bound=0.7, relative=False),
+        ObjectiveThreshold(metric=metric_cost, bound=2000, relative=False),
+    ]
+
+    optimization_config = MultiObjectiveOptimizationConfig(
+        objective=objectives,
+        objective_thresholds=objective_thresholds,
+    )
+    
+    initialization_steps = 5
+    optimization_steps = 2
+    
+    bo_experiment = build_experiment(search_space,optimization_config)
+    bo_data = initialize_experiment(bo_experiment,config.bo_init)
+    
+#     ehvi_hv_list = []
+    bo_model = None
+    for i in range(config.bo_steps):
+        
+        bo_model = Models.MOO_MODULAR(
+            experiment=bo_experiment,
+            data=bo_data,
+            surrogate=ListSurrogate(
+            botorch_submodel_class_per_outcome={
+                "accuracy": SingleTaskGP, 
+                "cost": SingleTaskGP,
+            },
+            submodel_options_per_outcome={"accuracy": {}, "cost": {}},
+        ))
+        
+        generator_run = bo_model.gen(1)
+        params = generator_run.arms[0].parameters
+        
+        #global actual_cost_g
+
+        trial = bo_experiment.new_trial(generator_run=generator_run)
+        trial.run()
+        trial.mark_completed()
+        bo_data = Data.from_multiple_data([bo_data, trial.fetch_data()])
+
+        exp_df = exp_to_df(bo_experiment)
+
+
+    outcomes = np.array(exp_to_df(bo_experiment)[['accuracy', 'cost']], dtype=np.double)
+    
+    frontier = compute_posterior_pareto_frontier(
+        experiment=bo_experiment,
+        data=bo_experiment.fetch_data(),
+        primary_objective=metric_accuracy,
+        secondary_objective=metric_cost,
+        absolute_metrics=["accuracy", "cost"],
+        num_points=config.bo_init + config.bo_steps,
+    )
+
+    plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
+
+
+# In[ ]:
 
 
 if __name__ == '__main__':    
@@ -186,10 +359,13 @@ if __name__ == '__main__':
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-
+    parser.add_argument('--evaluation', type=str, default='student_bo', 
+                        choices=['teacher', 'student', 'teacher_ensemble', 'student_bo'])
+    parser.add_argument('--bo_init', type=int, default=50)
+    parser.add_argument('--bo_steps', type=int, default=50)
+    
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', 
-                        choices=['teacher', 'kd', 'kd_baseline', 'ensemble_eval'])
+    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline'])
     parser.add_argument('--kd_temperature', type=float, default=5)
     parser.add_argument('--teachers', type=int, default=10)
 
@@ -239,9 +415,10 @@ if __name__ == '__main__':
         config.data_folder = Path('/data/cs.aau.dk/dgcc/TimeSeriesClassification')
     
 
-    if config.distiller == 'teacher':
+    if config.evaluation == 'teacher':
         teacher_config = config
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
+        teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
         model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
@@ -255,12 +432,22 @@ if __name__ == '__main__':
             torch.backends.cudnn.deterministic = True
             RunTeacher(model_t, config)
             
-    elif config.distiller == 'ensemble_eval':
+    elif config.evaluation == 'teacher_ensemble':
         TeacherEvaluation(config)
-    else:
+    elif config.evaluation == 'student_bo':
+        BayesianOptimization(config)
+    elif config.evaluation == 'student':
+        config.layer1 = config.layer2 = config.layer3 = 3
         model_s = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=config)
+
         model_s = model_s.to(config.device)
         StudentDistillation(model_s, config)
+
+
+# In[ ]:
+
+
+
 

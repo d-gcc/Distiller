@@ -66,15 +66,15 @@ class InceptionModel(nn.Module):
         i = 0
         self.layer1 = InceptionBlock(in_channels=channels[i], out_channels=channels[i + 1],
                                      residual=use_residuals[i], bottleneck_channels=bottleneck_channels[i],
-                                     kernel_size=kernel_sizes[i], bit=config.bit1, config=config)
+                                     kernel_size=kernel_sizes[i], bit=config.bit1, layer=config.layer1, config=config)
         i = 1
         self.layer2 = InceptionBlock(in_channels=channels[i], out_channels=channels[i + 1],
                                      residual=use_residuals[i], bottleneck_channels=bottleneck_channels[i],
-                                     kernel_size=kernel_sizes[i], bit=config.bit2, config=config)
+                                     kernel_size=kernel_sizes[i], bit=config.bit2, layer=config.layer2, config=config)
         i = 2
         self.layer3 = InceptionBlock(in_channels=channels[i], out_channels=channels[i + 1],
                                      residual=use_residuals[i], bottleneck_channels=bottleneck_channels[i],
-                                     kernel_size=kernel_sizes[i], bit=config.bit3, config=config)
+                                     kernel_size=kernel_sizes[i], bit=config.bit3, layer=config.layer3, config=config)
 
         # a global average pooling (i.e. mean of the time dimension) is why
         # in_features=channels[-1]
@@ -109,7 +109,7 @@ class InceptionBlock(nn.Module):
 
     def __init__(self, in_channels: int, out_channels: int,
                  residual: bool, stride: int = 1, bottleneck_channels: int = 32,
-                 kernel_size: int = 41,config=None,bit=None) -> None:
+                 kernel_size: int = 41,config=None,bit=None,layer=3) -> None:
         assert kernel_size > 3, "Kernel size must be strictly greater than 3"
         super().__init__()
 
@@ -118,9 +118,9 @@ class InceptionBlock(nn.Module):
         if self.use_bottleneck:
             self.bottleneck = Conv1dSamePadding(in_channels, bottleneck_channels,
                                                 kernel_size=1, bias=False, bit=bit, config=config)
-        kernel_size_s = [kernel_size // (2 ** i) for i in range(3)]
+        kernel_size_s = [kernel_size // (2 ** i) for i in range(layer)]
         start_channels = bottleneck_channels if self.use_bottleneck else in_channels
-        channels = [start_channels] + [out_channels] * 3
+        channels = [start_channels] + [out_channels] * layer
         self.conv_layers = nn.Sequential(*[
             Conv1dSamePadding(in_channels=channels[i], out_channels=channels[i + 1],
                               kernel_size=kernel_size_s[i], stride=stride, bias=False, bit=bit, config=config)

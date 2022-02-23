@@ -207,7 +207,7 @@ def evaluate(test_loader, model, config):
             print("PR and ROC one class undefinition")
 
 
-        if config.distiller == 'teacher':
+        if config.evaluation == 'teacher':
             type_q = "Full precision: " + str(config.bits)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
                        accuracy, "Seed", config.init_seed, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
@@ -218,7 +218,7 @@ def evaluate(test_loader, model, config):
                        config.w_kl, " ".join(str(e) for e in config.teacher_setting), config.teachers, "Metric 4", 0) 
          
         elif config.learned_kl_w:
-            type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
+            type_q = str(config.layer1) + "(" + str(config.bit1) + ")-" + str(config.layer2) + "(" + str(config.bit2) + ")-" + str(config.layer2) + "(" + str(config.bit3) + ")"
             teacher_w = "/".join(str(t) +":" + str(round(w, 3)) for w, t in zip(config.teacher_weights, config.teacher_setting))
             insert_SQL("Inception", config.pid, config.experiment, "Teacher weights", teacher_w, type_q, config.bits, 
                        config.distiller, accuracy, "Temperature", config.kd_temperature, "init_seed", config.init_seed, 

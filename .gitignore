@@ -8,3 +8,4 @@ MSSQL.txt
 **/__pycache__/
 *.db
 git.sh
+*.html

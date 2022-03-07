@@ -4,7 +4,7 @@
 # In[ ]:
 
 
-import argparse, torch, copy, os, numpy as np, pandas as pd
+import argparse, torch, copy, os, time, numpy as np, pandas as pd
 import torch.optim as optim
 import torch.nn.functional as F
 from torch import nn
@@ -35,12 +35,14 @@ def RunTeacher(model, config):
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     train_loader, val_loader, test_loader = get_loaders(config)
     best_accuracy = 0
+    start_training = time.time()
     
     for epoch in range(1, config.epochs + 1):
         train_single(epoch, train_loader, model, optimizer, config)
     
         if (epoch) % 100 == 0:
-            current_accuracy = evaluate(test_loader, model, config, epoch)
+            training_time = time.time() - start_training
+            current_accuracy = evaluate(test_loader, model, config, epoch, training_time)
             
             if current_accuracy > best_accuracy:
                 best_accuracy = current_accuracy

@@ -181,9 +181,10 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
     return ensemble_weights.tolist()
 
             
-def evaluate(test_loader, model, config, epochs=0):
+def evaluate(test_loader, model, config, epochs=0, training_time=0):
     model.eval()
 
+    start_test = time.time()
     with torch.no_grad():
         true_list, preds_list = [], []
         for x, y in test_loader:
@@ -196,7 +197,7 @@ def evaluate(test_loader, model, config, epochs=0):
                 else:
                     preds = torch.softmax(preds, dim=-1)
                 preds_list.append(preds.cpu().detach().numpy())
-
+        testing_time = time.time() - start_test
         true_np, preds_np = np.concatenate(true_list), np.concatenate(preds_list)
         accuracy = accuracy_score(*_to_1d_binary(true_np, preds_np), normalize=True)
 
@@ -210,7 +211,7 @@ def evaluate(test_loader, model, config, epochs=0):
         if config.evaluation == 'teacher':
             type_q = "Full precision: " + str(config.bits)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
-                       accuracy, "Seed", config.init_seed, "Epochs", epochs, "Metric 3", 0, "Metric 4", 0) 
+                       accuracy, "Seed", config.init_seed, "Epochs", epochs, "Training Time", training_time, "Testing Time", testing_time) 
         elif config.leaving_out:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,

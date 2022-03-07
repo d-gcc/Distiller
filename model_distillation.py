@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -28,7 +28,7 @@ from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
 
-# In[ ]:
+# In[2]:
 
 
 def RunTeacher(model, config):
@@ -53,18 +53,16 @@ def RunTeacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[ ]:
+# In[3]:
 
 
 def RunStudent(model, config, teachers):
     config.teachers = len(teachers)
     config.teacher_setting = teachers
-    #data = torch.randn(7, 1, 400).to(config.device) 
 
     model_s = model
     model_s.eval()
     model_s = model_s.to(config.device)
-    #feat_s, _ = model_s(data)
     params = list((model_s.parameters()))
 
     module_list = nn.ModuleList([])
@@ -87,11 +85,10 @@ def RunStudent(model, config, teachers):
         model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
-        
+
         model_t.load_state_dict(torch.load(savepath, map_location=config.device))
         model_t.eval()
         model_t = model_t.to(config.device)
-        #feat_t, _ = model_t(data)
         module_list.append(model_t)
 
     if config.random_init_w:
@@ -108,16 +105,19 @@ def RunStudent(model, config, teachers):
     module_list.to(config.device)
     criterion_list.to(config.device)
     train_loader, val_loader, test_loader = get_loaders(config)
-            
+
+    start_training = time.time()
     for epoch in range(1, config.epochs + 1):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         if config.learned_kl_w:
             teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
+        if (epoch) % 2 == 0:
+            training_time = time.time() - start_training
+            accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
+    return accuracy, dict(zip(teachers, teacher_weights))
 
-    return evaluate(test_loader, model_s, config), dict(zip(teachers, teacher_weights))
 
-
-# In[ ]:
+# In[4]:
 
 
 def remove_elements(x):
@@ -130,7 +130,7 @@ def recursive_accuracy(model,config,max_accuracy,current_teachers):
         if pivot_accuracy > max_accuracy:
             max_accuracy = pivot_accuracy
             if len(subgroup) > 2:
-                recursive_groups(max_accuracy,config,subgroup)
+                recursive_accuracy(model,config,max_accuracy,subgroup)
     return max_accuracy
 
 def recursive_weight(model,config,teacher_dic):
@@ -151,11 +151,12 @@ def StudentDistillation(model, config):
         teachers = [i for i in range(0,config.teachers)]
     max_accuracy, teacher_weights = RunStudent(model, config, teachers)
     
-    if config.leaving_out:
-        max_accuracy = recursive_accuracy(model, config, max_accuracy, teachers)
-    
-    if config.leaving_weights:
-        max_accuracy = recursive_weight(model, config, teacher_weights)
+    if config.distiller == 'kd':
+        if config.leaving_out:
+            max_accuracy = recursive_accuracy(model, config, max_accuracy, teachers)
+
+        elif config.leaving_weights:
+            max_accuracy = recursive_weight(model, config, teacher_weights)
         
     return max_accuracy
 
@@ -164,7 +165,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[ ]:
+# In[5]:
 
 
 class StudentBO():
@@ -216,7 +217,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[ ]:
+# In[6]:
 
 
 class MetricAccuracy(Metric):
@@ -249,7 +250,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[ ]:
+# In[7]:
 
 
 def BayesianOptimization(config):
@@ -334,7 +335,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[ ]:
+# In[8]:
 
 
 if __name__ == '__main__':    
@@ -359,18 +360,18 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=5e-4)
-    parser.add_argument('--epochs', type=int, default=3)
+    parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--patience', type=int, default=1500)
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-    parser.add_argument('--evaluation', type=str, default='student_bo', 
+    parser.add_argument('--evaluation', type=str, default='student', 
                         choices=['teacher', 'student', 'teacher_ensemble', 'student_bo'])
     parser.add_argument('--bo_init', type=int, default=50)
     parser.add_argument('--bo_steps', type=int, default=50)
     
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline'])
+    parser.add_argument('--distiller', type=str, default='kd_baseline', choices=['kd', 'kd_baseline'])
     parser.add_argument('--kd_temperature', type=float, default=5)
     parser.add_argument('--teachers', type=int, default=10)
 
@@ -380,9 +381,9 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=True)
-    parser.add_argument('--leaving_weights', type=str2bool, default=True)
+    parser.add_argument('--leaving_weights', type=str2bool, default=False)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")
@@ -405,6 +406,11 @@ if __name__ == '__main__':
         torch.manual_seed(config.init_seed)
         torch.cuda.manual_seed(config.init_seed)
         torch.backends.cudnn.deterministic = True
+        
+    if config.distiller != 'kd':
+        config.leaving_out = False
+        config.learned_kl_w = False
+        config.leaving_weights = False
     
     df = pd.read_csv('TimeSeries.csv',header=None)
     num_classes = int(df[(df == config.experiment).any(axis=1)][1])
@@ -449,10 +455,4 @@ if __name__ == '__main__':
 
         model_s = model_s.to(config.device)
         StudentDistillation(model_s, config)
-
-
-# In[ ]:
-
-
-
 

@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import os
 
 from pathlib import Path
-from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
+from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score, top_k_accuracy_score
 from .util import _to_1d_binary, insert_SQL 
 from utils.inception import InceptionModel
 import copy
@@ -112,7 +112,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         loss.backward()
         optimizer.step()
 
-        
+
 def validation(epoch, val_loader, module_list, criterion_list, optimizer, config):
 
     for module in module_list:
@@ -180,7 +180,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
     config.teacher_weights = ensemble_weights.tolist()
     return ensemble_weights.tolist()
 
-            
+
 def evaluate(test_loader, model, config, epochs=0, training_time=0):
     model.eval()
 
@@ -200,6 +200,8 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
         testing_time = time.time() - start_test
         true_np, preds_np = np.concatenate(true_list), np.concatenate(preds_list)
         accuracy = accuracy_score(*_to_1d_binary(true_np, preds_np), normalize=True)
+        true_1d,_ = _to_1d_binary(true_np, preds_np)
+        accuracy_5 = top_k_accuracy_score(true_1d, preds_np, normalize=True, k=5)
 
         try:
             roc_auc = roc_auc_score(true_np, preds_np)
@@ -212,18 +214,16 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
             type_q = "Full precision: " + str(config.bits)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
                        accuracy, "Seed", config.init_seed, "Epochs", epochs, "Training Time", training_time, "Testing Time", testing_time) 
-        elif config.leaving_out:
-            type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
-            insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
-                       accuracy, "Temperature", config.kd_temperature, "w_kl", 
-                       config.w_kl, " ".join(str(e) for e in config.teacher_setting), config.teachers, "Metric 4", 0) 
-         
-        elif config.learned_kl_w:
+        elif config.evaluation == 'student':
             type_q = str(config.layer1) + "(" + str(config.bit1) + ")-" + str(config.layer2) + "(" + str(config.bit2) + ")-" + str(config.layer2) + "(" + str(config.bit3) + ")"
-            teacher_w = "/".join(str(t) +":" + str(round(w, 3)) for w, t in zip(config.teacher_weights, config.teacher_setting))
-            insert_SQL("Inception", config.pid, config.experiment, "Teacher weights", teacher_w, type_q, config.bits, 
-                       config.distiller, accuracy, "Temperature", config.kd_temperature, "init_seed", config.init_seed, 
-                       "Teachers", config.teachers, "Epochs", config.epochs)
+            if config.learned_kl_w:
+                teacher_w = "/".join(str(t) +":" + str(round(w, 3)) for w, t in zip(config.teacher_weights, config.teacher_setting))
+            else:
+                teacher_w = "/".join(str(e) for e in config.teacher_setting)
+
+            insert_SQL("Inception", config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.bits,
+                       config.distiller,accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", training_time,"Testing Time", testing_time,) 
+            
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
@@ -231,6 +231,7 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
                        "Metric 4", 0) 
         
         return accuracy
+
 
 def evaluate_ensemble(test_loader, config):
     
@@ -240,6 +241,7 @@ def evaluate_ensemble(test_loader, config):
         savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
         teacher_config = copy.deepcopy(config)
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
+        teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
         model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
                        bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
                        num_pred_classes=config.num_classes,config=teacher_config)
@@ -268,10 +270,12 @@ def evaluate_ensemble(test_loader, config):
     sum_np = sum_probabilities.cpu().detach().numpy()
 
     accuracy = accuracy_score(*_to_1d_binary(true_np, sum_np), normalize=True)
+    true_1d,_ = _to_1d_binary(true_np, sum_np)
+    accuracy_5 = top_k_accuracy_score(true_1d, sum_np, normalize=True, k=5)
 
     type_q = "Full precision: " + str(config.bits)
     insert_SQL("Inception", config.pid, config.experiment, "Teacher Ensemble", 0, type_q, config.bits, config.distiller,
-               accuracy, "Metric 1", 0, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
+               accuracy, "Top 5", accuracy_5, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
 
     
     return accuracy

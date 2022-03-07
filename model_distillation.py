@@ -111,7 +111,7 @@ def RunStudent(model, config, teachers):
         train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         if config.learned_kl_w:
             teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
-        if (epoch) % 2 == 0:
+        if (epoch) % 100 == 0:
             training_time = time.time() - start_training
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
     return accuracy, dict(zip(teachers, teacher_weights))

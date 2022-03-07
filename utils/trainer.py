@@ -181,7 +181,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
     return ensemble_weights.tolist()
 
             
-def evaluate(test_loader, model, config):
+def evaluate(test_loader, model, config, epochs=0):
     model.eval()
 
     with torch.no_grad():
@@ -210,7 +210,7 @@ def evaluate(test_loader, model, config):
         if config.evaluation == 'teacher':
             type_q = "Full precision: " + str(config.bits)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
-                       accuracy, "Seed", config.init_seed, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
+                       accuracy, "Seed", config.init_seed, "Epochs", epochs, "Metric 3", 0, "Metric 4", 0) 
         elif config.leaving_out:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,

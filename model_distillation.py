@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse, torch, copy, os, numpy as np, pandas as pd
@@ -28,38 +28,41 @@ from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
 
-# In[2]:
+# In[ ]:
 
 
 def RunTeacher(model, config):
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     train_loader, val_loader, test_loader = get_loaders(config)
-
+    best_accuracy = 0
+    
     for epoch in range(1, config.epochs + 1):
         train_single(epoch, train_loader, model, optimizer, config)
     
-    if (config.evaluation == 'teacher'):
-        if not os.path.exists('./teachers/'):
-            os.makedirs('./teachers/')
-        model_name = f'Inception_{config.experiment}_{config.init_seed}_teacher.pkl'
-        savepath = "./teachers/" + model_name
-        torch.save(model.state_dict(), savepath)
+        if (epoch) % 100 == 0:
+            current_accuracy = evaluate(test_loader, model, config, epoch)
+            
+            if current_accuracy > best_accuracy:
+                best_accuracy = current_accuracy
+                if not os.path.exists('./teachers/'):
+                    os.makedirs('./teachers/')
+                model_name = f'Inception_{config.experiment}_{config.init_seed}_teacher.pkl'
+                savepath = "./teachers/" + model_name
+                torch.save(model.state_dict(), savepath)
 
-    evaluate(test_loader, model, config)
 
-
-# In[3]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
     config.teachers = len(teachers)
     config.teacher_setting = teachers
-    data = torch.randn(7, 1, 400).to(config.device) 
+    #data = torch.randn(7, 1, 400).to(config.device) 
 
     model_s = model
     model_s.eval()
     model_s = model_s.to(config.device)
-    feat_s, _ = model_s(data)
+    #feat_s, _ = model_s(data)
     params = list((model_s.parameters()))
 
     module_list = nn.ModuleList([])
@@ -86,7 +89,7 @@ def RunStudent(model, config, teachers):
         model_t.load_state_dict(torch.load(savepath, map_location=config.device))
         model_t.eval()
         model_t = model_t.to(config.device)
-        feat_t, _ = model_t(data)
+        #feat_t, _ = model_t(data)
         module_list.append(model_t)
 
     if config.random_init_w:
@@ -112,7 +115,7 @@ def RunStudent(model, config, teachers):
     return evaluate(test_loader, model_s, config), dict(zip(teachers, teacher_weights))
 
 
-# In[4]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -159,7 +162,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[5]:
+# In[ ]:
 
 
 class StudentBO():
@@ -211,7 +214,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[6]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -244,7 +247,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[7]:
+# In[ ]:
 
 
 def BayesianOptimization(config):

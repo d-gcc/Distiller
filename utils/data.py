@@ -31,7 +31,7 @@ class InputData:
 
     def split(self, split_size: float):
         train_x, val_x, train_y, val_y = train_test_split(
-            self.x.numpy(), self.y.numpy(), test_size=split_size, stratify=self.y
+            self.x.numpy(), self.y.numpy(), test_size=split_size, stratify=None
         )
         return (InputData(x=torch.from_numpy(train_x), y=torch.from_numpy(train_y)),
                 InputData(x=torch.from_numpy(val_x), y=torch.from_numpy(val_y)))

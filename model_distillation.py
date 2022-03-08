@@ -75,6 +75,8 @@ def RunStudent(model, config, teachers):
         criterion_list.append(DistillKL(config.kd_temperature))
     elif config.distiller == 'kd_baseline':
         criterion_list.append(KDEnsemble(config.kd_temperature, config.device))
+    elif config.distiller == 'ae-kd':
+        criterion_list.append(DistillKL(config.kd_temperature))
 
     # Teachers
     for teacher in teachers:
@@ -112,6 +114,9 @@ def RunStudent(model, config, teachers):
         if config.learned_kl_w:
             teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
         if (epoch) % 100 == 0:
+            training_time = time.time() - start_training
+            accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
+        elif config.pid == 0:
             training_time = time.time() - start_training
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
     return accuracy, dict(zip(teachers, teacher_weights))
@@ -342,7 +347,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--fff", help="A dummy argument for Jupyter", default="1")
     parser.add_argument('--experiment', type=str, default='SyntheticControl') 
-    #ECG5000, ItalyPowerDemand, Plane, SyntheticControl
 
     # Quantization
     parser.add_argument('--bits', type=int, default=32)
@@ -371,7 +375,7 @@ if __name__ == '__main__':
     parser.add_argument('--bo_steps', type=int, default=50)
     
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd_baseline', choices=['kd', 'kd_baseline'])
+    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd'])
     parser.add_argument('--kd_temperature', type=float, default=5)
     parser.add_argument('--teachers', type=int, default=10)
 

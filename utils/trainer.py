@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score, top_k_accuracy_score
 from .util import _to_1d_binary, insert_SQL 
+from .ae_kd import find_optimal_svm
 from utils.inception import InceptionModel
 import copy
 
@@ -96,6 +97,24 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             batch_loss += loss_div
             ensemble_loss = batch_loss
 
+        elif config.distiller == 'ae_kd':
+            loss_div_list = []
+            grads = []
+            logit_s.register_hook(lambda grad: grads.append(
+                Variable(grad.data.clone(), requires_grad=False)))
+            for logit_t in logit_t_list:
+                optimizer.zero_grad()
+                loss_s = criterion_div(logit_s, logit_t)
+                loss_s.backward(retain_graph=True)
+                loss_div_list.append(loss_s)
+
+            scale = find_optimal_svm(torch.stack(grads),device=config.device)
+            losses_div_tensor = torch.stack(loss_div_list)
+
+            scale = scale.to(config.device)
+            losses_div_tensor.to(config.device)
+            loss_div = torch.dot(scale, losses_div_tensor)
+            
         loss_kd = 0
               
         if len(target.shape) == 1:

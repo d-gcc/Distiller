@@ -100,7 +100,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             batch_loss += loss_div
             ensemble_loss = batch_loss
 
-        elif config.distiller == 'ae_kd':
+        elif config.distiller == 'ae-kd':
             loss_div_list = []
             grads = []
             logit_s.register_hook(lambda grad: grads.append(

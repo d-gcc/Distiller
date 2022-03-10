@@ -82,7 +82,10 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                 
             with torch.no_grad():
                 teacher_losses, ensemble_weights = model_weights(teachers_loss)
-                ensemble_loss = torch.sum(teacher_losses)
+                if config.weights_mult:
+                    ensemble_loss = torch.sum(teacher_losses)
+                else:
+                    ensemble_loss = torch.sum(teachers_loss)
             
         elif config.distiller == 'kd_baseline':
             logit_list = []
@@ -113,7 +116,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
 
             scale = scale.to(config.device)
             losses_div_tensor.to(config.device)
-            loss_div = torch.dot(scale, losses_div_tensor)
+            ensemble_loss = torch.dot(scale, losses_div_tensor)
             
         loss_kd = 0
               
@@ -122,7 +125,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')       
 
-        loss = config.w_ce * loss_cls + config.w_kl * batch_loss + config.w_other * loss_kd
+        loss = config.w_ce * loss_cls + config.w_kl * ensemble_loss + config.w_other * loss_kd
 
         total_kl += batch_loss
         total_ce_loss += loss_cls

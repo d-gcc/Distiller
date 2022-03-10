@@ -318,8 +318,6 @@ def BayesianOptimization(config):
         
         generator_run = bo_model.gen(1)
         params = generator_run.arms[0].parameters
-        
-        #global actual_cost_g
 
         trial = bo_experiment.new_trial(generator_run=generator_run)
         trial.run()
@@ -343,7 +341,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[ ]:
+# In[8]:
 
 
 if __name__ == '__main__':    
@@ -387,10 +385,11 @@ if __name__ == '__main__':
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
-    parser.add_argument('--leaving_out', type=str2bool, default=True)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
-    parser.add_argument('--random_init_w', type=str2bool, default=True)
+    parser.add_argument('--leaving_out', type=str2bool, default=False)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--random_init_w', type=str2bool, default=False)
     parser.add_argument('--leaving_weights', type=str2bool, default=False)
+    parser.add_argument('--weights_mult', type=str2bool, default=False)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")

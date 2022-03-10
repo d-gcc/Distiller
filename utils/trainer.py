@@ -239,9 +239,12 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
                 teacher_w = "/".join(str(t) +":" + str(round(w, 3)) for w, t in zip(config.teacher_weights, config.teacher_setting))
             else:
                 teacher_w = "/".join(str(e) for e in config.teacher_setting)
+                if len(config.teacher_setting) < 10:
+                    teacher_w = teacher_w + " (" + str(config.teachers_removed[0]) + ")"
 
             insert_SQL("Inception", config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.bits,
-                       config.distiller,accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", training_time,"Testing Time", testing_time,) 
+                       config.distiller,accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", training_time,"Testing Time", testing_time,)
+
             
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)

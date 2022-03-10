@@ -58,6 +58,9 @@ def RunTeacher(model, config):
 
 def RunStudent(model, config, teachers):
     config.teachers = len(teachers)
+    config.teachers_removed = None
+    if len(teachers) < 10:
+        config.teachers_removed = list(set(config.teacher_setting) - set(teachers))
     config.teacher_setting = teachers
 
     model_s = model
@@ -340,7 +343,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[8]:
+# In[ ]:
 
 
 if __name__ == '__main__':    
@@ -384,7 +387,7 @@ if __name__ == '__main__':
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
-    parser.add_argument('--leaving_out', type=str2bool, default=False)
+    parser.add_argument('--leaving_out', type=str2bool, default=True)
     parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=True)
     parser.add_argument('--leaving_weights', type=str2bool, default=False)

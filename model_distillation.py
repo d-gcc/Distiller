@@ -376,7 +376,7 @@ if __name__ == '__main__':
     parser.add_argument('--bo_steps', type=int, default=50)
     
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd'])
+    parser.add_argument('--distiller', type=str, default='ae-kd', choices=['kd', 'kd_baseline','ae-kd'])
     parser.add_argument('--kd_temperature', type=float, default=5)
     parser.add_argument('--teachers', type=int, default=10)
 

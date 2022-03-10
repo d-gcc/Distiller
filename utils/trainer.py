@@ -14,6 +14,7 @@ from .util import _to_1d_binary, insert_SQL
 from .ae_kd import find_optimal_svm
 from utils.inception import InceptionModel
 import copy
+from torch.autograd import Variable
 
 
 def train_single(epoch, train_loader, model, optimizer, config):
@@ -101,6 +102,14 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             ensemble_loss = batch_loss
 
         elif config.distiller == 'ae-kd':
+            logit_t_list = []
+            
+            for teacher in range(0,config.teachers):
+                model_t = module_list[teacher+1]
+                with torch.no_grad():
+                    feat_t, logit_t = model_t(input)
+                    logit_t_list.append(logit_t)
+                
             loss_div_list = []
             grads = []
             logit_s.register_hook(lambda grad: grads.append(

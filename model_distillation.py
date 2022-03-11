@@ -59,8 +59,10 @@ def RunTeacher(model, config):
 def RunStudent(model, config, teachers):
     config.teachers = len(teachers)
     config.teachers_removed = None
-    if len(teachers) < 10:
+    try:
         config.teachers_removed = list(set(config.teacher_setting) - set(teachers))
+    except:
+        pass
     config.teacher_setting = teachers
 
     model_s = model
@@ -376,7 +378,7 @@ if __name__ == '__main__':
     parser.add_argument('--bo_steps', type=int, default=50)
     
     # Distillation
-    parser.add_argument('--distiller', type=str, default='ae-kd', choices=['kd', 'kd_baseline','ae-kd'])
+    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd'])
     parser.add_argument('--kd_temperature', type=float, default=5)
     parser.add_argument('--teachers', type=int, default=10)
 
@@ -385,11 +387,11 @@ if __name__ == '__main__':
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
-    parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--leaving_out', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
     parser.add_argument('--leaving_weights', type=str2bool, default=False)
-    parser.add_argument('--weights_mult', type=str2bool, default=False)
+    parser.add_argument('--avoid_mult', type=str2bool, default=False)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")
@@ -417,6 +419,7 @@ if __name__ == '__main__':
         config.leaving_out = False
         config.learned_kl_w = False
         config.leaving_weights = False
+        config.avoid_mult = False
     
     df = pd.read_csv('TimeSeries.csv',header=None)
     num_classes = int(df[(df == config.experiment).any(axis=1)][1])

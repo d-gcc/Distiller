@@ -83,10 +83,10 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                 
             with torch.no_grad():
                 teacher_losses, ensemble_weights = model_weights(teachers_loss)
-                if config.weights_mult:
-                    ensemble_loss = torch.sum(teacher_losses)
-                else:
+                if config.avoid_mult:
                     ensemble_loss = torch.sum(teachers_loss)
+                else:
+                    ensemble_loss = torch.sum(teacher_losses)
             
         elif config.distiller == 'kd_baseline':
             logit_list = []
@@ -251,8 +251,10 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
                 teacher_w = "/".join(str(t) +":" + str(round(w, 3)) for w, t in zip(config.teacher_weights, config.teacher_setting))
             else:
                 teacher_w = "/".join(str(e) for e in config.teacher_setting)
-                if len(config.teacher_setting) < 10:
+                try:
                     teacher_w = teacher_w + " (" + str(config.teachers_removed[0]) + ")"
+                except:
+                    pass
 
             insert_SQL("Inception", config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.bits,
                        config.distiller,accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", training_time,"Testing Time", testing_time,)

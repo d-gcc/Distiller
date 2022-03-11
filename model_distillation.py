@@ -143,13 +143,25 @@ def recursive_accuracy(model,config,max_accuracy,current_teachers):
                 recursive_accuracy(model,config,max_accuracy,subgroup)
     return max_accuracy
 
-def recursive_weight(model,config,teacher_dic):
+def recursive_weight2(model,config,teacher_dic):
     min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
     del teacher_dic[min_key]
     new_teachers = list(teacher_dic.keys())
     accuracy, new_weights = RunStudent(model, config, new_teachers)
     if len(new_teachers) > 2:
         accuracy = recursive_weight(model,config,new_weights)
+    return accuracy
+
+def recursive_weight(model,config,teacher_dic):
+    ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
+
+    for i in range(0,config.explore_branches):
+        copy_weights = copy.deepcopy(teacher_dic)
+        del copy_weights[ordered_weights[i][0]]
+        new_teachers = list(copy_weights.keys())
+        accuracy, new_weights = RunStudent(model, config, new_teachers)
+        if len(new_teachers) > 2:
+            accuracy = recursive_weight(model,config,new_weights)
     return accuracy
 
 def StudentDistillation(model, config):
@@ -303,7 +315,6 @@ def BayesianOptimization(config):
     bo_experiment = build_experiment(search_space,optimization_config)
     bo_data = initialize_experiment(bo_experiment,config.bo_init)
     
-#     ehvi_hv_list = []
     bo_model = None
     for i in range(config.bo_steps):
         
@@ -387,11 +398,12 @@ if __name__ == '__main__':
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
-    parser.add_argument('--leaving_out', type=str2bool, default=True)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
+    parser.add_argument('--leaving_out', type=str2bool, default=False)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
-    parser.add_argument('--leaving_weights', type=str2bool, default=False)
+    parser.add_argument('--leaving_weights', type=str2bool, default=True)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
+    parser.add_argument('--explore_branches', type=int, default=3)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")

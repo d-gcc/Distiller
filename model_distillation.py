@@ -403,7 +403,7 @@ if __name__ == '__main__':
     parser.add_argument('--random_init_w', type=str2bool, default=False)
     parser.add_argument('--leaving_weights', type=str2bool, default=True)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
-    parser.add_argument('--explore_branches', type=int, default=3)
+    parser.add_argument('--explore_branches', type=int, default=1)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")

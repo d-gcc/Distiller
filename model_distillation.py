@@ -141,7 +141,7 @@ def recursive_accuracy(model,config,max_accuracy,current_teachers):
             max_accuracy = pivot_accuracy
             if len(subgroup) > 2:
                 recursive_accuracy(model,config,max_accuracy,subgroup)
-    return max_accuracy
+    return max_accuracy #The value is not updated, so the recursivity did not always stop
 
 def recursive_weight2(model,config,teacher_dic):
     min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
@@ -154,21 +154,21 @@ def recursive_weight2(model,config,teacher_dic):
 
 def recursive_weight(model,config,teacher_dic):
     ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
-
+    
     if len(list(teacher_dic.keys())) > config.explore_branches:
         for i in range(0,config.explore_branches):
             copy_weights = copy.deepcopy(teacher_dic)
             del copy_weights[ordered_weights[i][0]]
             new_teachers = list(copy_weights.keys())
             accuracy, new_weights = RunStudent(model, config, new_teachers)
-            if len(new_teachers) > 2:
+            if len(new_teachers) > 5:
                 accuracy = recursive_weight(model,config,new_weights)
     else:
         min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
         del teacher_dic[min_key]
         new_teachers = list(teacher_dic.keys())
         accuracy, new_weights = RunStudent(model, config, new_teachers)
-        if len(new_teachers) > 2:
+        if len(new_teachers) > 5:
             accuracy = recursive_weight(model,config,new_weights)
     return accuracy
 
@@ -195,7 +195,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[ ]:
+# In[5]:
 
 
 class StudentBO():
@@ -247,7 +247,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[ ]:
+# In[6]:
 
 
 class MetricAccuracy(Metric):
@@ -280,7 +280,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[ ]:
+# In[7]:
 
 
 def BayesianOptimization(config):
@@ -362,7 +362,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[ ]:
+# In[8]:
 
 
 if __name__ == '__main__':    
@@ -406,12 +406,12 @@ if __name__ == '__main__':
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
-    parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--leaving_out', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
-    parser.add_argument('--leaving_weights', type=str2bool, default=True)
+    parser.add_argument('--leaving_weights', type=str2bool, default=False)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
-    parser.add_argument('--explore_branches', type=int, default=1)
+    parser.add_argument('--explore_branches', type=int, default=2)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")

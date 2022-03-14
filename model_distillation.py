@@ -155,10 +155,18 @@ def recursive_weight2(model,config,teacher_dic):
 def recursive_weight(model,config,teacher_dic):
     ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
 
-    for i in range(0,config.explore_branches):
-        copy_weights = copy.deepcopy(teacher_dic)
-        del copy_weights[ordered_weights[i][0]]
-        new_teachers = list(copy_weights.keys())
+    if len(new_teachers) > config.explore_branches:
+        for i in range(0,config.explore_branches):
+            copy_weights = copy.deepcopy(teacher_dic)
+            del copy_weights[ordered_weights[i][0]]
+            new_teachers = list(copy_weights.keys())
+            accuracy, new_weights = RunStudent(model, config, new_teachers)
+            if len(new_teachers) > 2: t
+                accuracy = recursive_weight(model,config,new_weights)
+    else:
+        min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
+        del teacher_dic[min_key]
+        new_teachers = list(teacher_dic.keys())
         accuracy, new_weights = RunStudent(model, config, new_teachers)
         if len(new_teachers) > 2:
             accuracy = recursive_weight(model,config,new_weights)

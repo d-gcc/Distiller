@@ -161,7 +161,7 @@ def recursive_weight(model,config,teacher_dic):
             del copy_weights[ordered_weights[i][0]]
             new_teachers = list(copy_weights.keys())
             accuracy, new_weights = RunStudent(model, config, new_teachers)
-            if len(new_teachers) > 2: t
+            if len(new_teachers) > 2:
                 accuracy = recursive_weight(model,config,new_weights)
     else:
         min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
@@ -195,7 +195,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[5]:
+# In[ ]:
 
 
 class StudentBO():
@@ -247,7 +247,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[6]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -280,7 +280,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[7]:
+# In[ ]:
 
 
 def BayesianOptimization(config):
@@ -362,7 +362,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[8]:
+# In[ ]:
 
 
 if __name__ == '__main__':    

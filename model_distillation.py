@@ -404,7 +404,7 @@ if __name__ == '__main__':
     # Distillation
     parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd','cawpe'])
     parser.add_argument('--kd_temperature', type=float, default=5)
-    parser.add_argument('--teachers', type=int, default=10)
+    parser.add_argument('--teachers', type=int, default=5)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
     parser.add_argument('--w_kl', type=float, default=1, help='weight for KL')

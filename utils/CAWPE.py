@@ -29,7 +29,7 @@ def train_probabilities(config):
         start_training = time.time()
 
         for cross_val in range(0,config.cross_validation):
-            for epoch in range(1, config.epochs + 1):
+            for epoch in range(1, 101):
                 train_single(epoch, train_cross_loaders[cross_val], model, optimizer, config)
             training_time = time.time() - start_training
             cross_accuracy[cross_val] = evaluate(test_cross_loaders[cross_val], model, config, epoch, training_time)

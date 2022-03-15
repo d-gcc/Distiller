@@ -1,13 +1,12 @@
 from utils.data import get_kfold_loaders
-import torch
-import time, numpy as np
+import torch, copy, time, numpy as np
 from utils.trainer import train_single, evaluate
 from utils.inception import InceptionModel
 import torch.nn.functional as F
 
 def train_probabilities(config):
 
-    teacher_config = config
+    teacher_config = copy.deepcopy(config)
     teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
     teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
     model = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],

@@ -35,4 +35,4 @@ def train_probabilities(config):
             cross_accuracy[cross_val] = evaluate(test_cross_loaders[cross_val], model, config, epoch, training_time)
         teacher_prob[teacher] = np.max(cross_accuracy)
         
-    return F.softmax(torch.tensor(teacher_prob),dim=0)
+    return F.softmax(torch.tensor(teacher_prob,device=config.device),dim=0)

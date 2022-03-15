@@ -4,7 +4,7 @@ import numpy as np
 import os
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from torch.utils.data import DataLoader, TensorDataset
 import torch
 from torch import nn
@@ -31,8 +31,7 @@ class InputData:
 
     def split(self, split_size: float):
         train_x, val_x, train_y, val_y = train_test_split(
-            self.x.numpy(), self.y.numpy(), test_size=split_size, stratify=None
-        )
+            self.x.numpy(), self.y.numpy(), test_size=split_size, stratify=None)
         return (InputData(x=torch.from_numpy(train_x), y=torch.from_numpy(train_y)),
                 InputData(x=torch.from_numpy(val_x), y=torch.from_numpy(val_y)))
 
@@ -125,21 +124,25 @@ def get_loaders(config):
     train_data, test_data = load_ucr_data(config)
     train_data, val_data = train_data.split(config.val_size)
 
-    train_loader = DataLoader(
-        TensorDataset(train_data.x, train_data.y),
-        batch_size=config.batch_size,
-        shuffle=True,
-    )
-    val_loader = DataLoader(
-        TensorDataset(val_data.x, val_data.y),
-        batch_size=config.batch_size,
-        shuffle=False
-    )
-
-    test_loader = DataLoader(
-        TensorDataset(test_data.x, test_data.y),
-        batch_size=config.batch_size,
-        shuffle=False,
-    )
+    train_loader = DataLoader(TensorDataset(train_data.x, train_data.y),batch_size=config.batch_size,shuffle=True)
+    val_loader = DataLoader(TensorDataset(val_data.x, val_data.y),batch_size=config.batch_size,shuffle=False)
+    test_loader = DataLoader(TensorDataset(test_data.x, test_data.y),batch_size=config.batch_size,shuffle=False)
     
     return train_loader, val_loader, test_loader
+
+def get_kfold_loaders(config):
+    train_loaders = []
+    test_loaders = []
+    kfold = KFold(n_splits=config.cross_validation)
+    train_data, _ = load_ucr_data(config)
+    for fold, (train_index, test_index) in enumerate(kfold.split(train_data.x, train_data.y)):
+
+        x_train_fold = train_data.x[train_index]
+        x_test_fold = train_data.x[test_index]
+        y_train_fold = train_data.y[train_index]
+        y_test_fold = train_data.y[test_index]
+
+        train_loaders.append(DataLoader(TensorDataset(x_train_fold, y_train_fold),batch_size=config.batch_size,shuffle=False))
+        test_loaders.append(DataLoader(TensorDataset(x_test_fold, y_test_fold),batch_size=config.batch_size,shuffle=False))
+        
+    return train_loaders, test_loaders

@@ -15,6 +15,7 @@ from utils.util import str2bool, get_free_device
 from utils.inception import InceptionModel
 from utils.distiller import DistillKL, KDEnsemble, TeacherWeights
 from utils.trainer import train_single, train_distilled, validation, evaluate, evaluate_ensemble
+from utils.CAWPE import train_probabilities
 
 from ax import *
 from ax.runners.synthetic import SyntheticRunner
@@ -82,6 +83,8 @@ def RunStudent(model, config, teachers):
         criterion_list.append(KDEnsemble(config.kd_temperature, config.device))
     elif config.distiller == 'ae-kd':
         criterion_list.append(DistillKL(config.kd_temperature))
+    elif config.distiller == 'cawpe':
+        criterion_list.append(DistillKL(config.kd_temperature))
 
     # Teachers
     for teacher in teachers:
@@ -111,11 +114,22 @@ def RunStudent(model, config, teachers):
         
     module_list.to(config.device)
     criterion_list.to(config.device)
+    
     train_loader, val_loader, test_loader = get_loaders(config)
 
     start_training = time.time()
+    
+    if config.distiller == 'cawpe':
+        config.evaluation = 'cross_validation'
+        teacher_probs = train_probabilities(config)
+        config.evaluation = 'student'
+    
     for epoch in range(1, config.epochs + 1):
-        train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
+        if config.distiller == 'cawpe':
+            train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
+        else:
+            train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
+        
         if config.learned_kl_w:
             teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
         if (epoch) % 100 == 0:
@@ -141,16 +155,7 @@ def recursive_accuracy(model,config,max_accuracy,current_teachers):
             max_accuracy = pivot_accuracy
             if len(subgroup) > 2:
                 recursive_accuracy(model,config,max_accuracy,subgroup)
-    return max_accuracy #The value is not updated, so the recursivity did not always stop
-
-def recursive_weight2(model,config,teacher_dic):
-    min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
-    del teacher_dic[min_key]
-    new_teachers = list(teacher_dic.keys())
-    accuracy, new_weights = RunStudent(model, config, new_teachers)
-    if len(new_teachers) > 2:
-        accuracy = recursive_weight(model,config,new_weights)
-    return accuracy
+    return max_accuracy # The value is not updated, so the recursivity continues
 
 def recursive_weight(model,config,teacher_dic):
     ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
@@ -397,7 +402,7 @@ if __name__ == '__main__':
     parser.add_argument('--bo_steps', type=int, default=50)
     
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd'])
+    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd','cawpe'])
     parser.add_argument('--kd_temperature', type=float, default=5)
     parser.add_argument('--teachers', type=int, default=10)
 
@@ -406,12 +411,13 @@ if __name__ == '__main__':
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
-    parser.add_argument('--leaving_out', type=str2bool, default=True)
+    parser.add_argument('--leaving_out', type=str2bool, default=False)
     parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
     parser.add_argument('--leaving_weights', type=str2bool, default=False)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
     parser.add_argument('--explore_branches', type=int, default=2)
+    parser.add_argument('--cross_validation', type=int, default=10)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")
@@ -440,7 +446,7 @@ if __name__ == '__main__':
         config.learned_kl_w = False
         config.leaving_weights = False
         config.avoid_mult = False
-    
+
     df = pd.read_csv('TimeSeries.csv',header=None)
     num_classes = int(df[(df == config.experiment).any(axis=1)][1])
     if num_classes == 2:
@@ -453,8 +459,7 @@ if __name__ == '__main__':
         config.data_folder = Path('/data/dgcc/TimeSeriesClassification')
     else:
         config.data_folder = Path('/data/cs.aau.dk/dgcc/TimeSeriesClassification')
-    
-
+        
     if config.evaluation == 'teacher':
         teacher_config = config
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits

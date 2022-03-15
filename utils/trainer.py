@@ -37,7 +37,7 @@ def train_single(epoch, train_loader, model, optimizer, config):
         optimizer.step()
     
 
-def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config):
+def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs = 0):
 
     for module in module_list:
         module.eval()
@@ -120,12 +120,39 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                 loss_s.backward(retain_graph=True)
                 loss_div_list.append(loss_s)
 
+
             scale = find_optimal_svm(torch.stack(grads),device=config.device)
             losses_div_tensor = torch.stack(loss_div_list)
 
             scale = scale.to(config.device)
             losses_div_tensor.to(config.device)
             ensemble_loss = torch.dot(scale, losses_div_tensor)
+            
+        elif config.distiller == 'cawpe':
+            logit_t_list = []
+            
+            for teacher in range(0,config.teachers):
+                model_t = module_list[teacher+1]
+                with torch.no_grad():
+                    feat_t, logit_t = model_t(input)
+                    logit_t_list.append(logit_t)
+                
+            loss_div_list = []
+            grads = []
+            logit_s.register_hook(lambda grad: grads.append(
+                Variable(grad.data.clone(), requires_grad=False)))
+            for logit_t in logit_t_list:
+                optimizer.zero_grad()
+                loss_s = criterion_div(logit_s, logit_t)
+                loss_s.backward(retain_graph=True)
+                loss_div_list.append(loss_s)
+
+            scale = teacher_probs
+            losses_div_tensor = torch.stack(loss_div_list)
+
+            scale = scale.to(config.device)
+            losses_div_tensor.to(config.device)
+            ensemble_loss = torch.sum(torch.mul(scale, losses_div_tensor)) #torch.dot(scale, losses_div_tensor)
             
         loss_kd = 0
               
@@ -232,13 +259,13 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
         true_np, preds_np = np.concatenate(true_list), np.concatenate(preds_list)
         accuracy = accuracy_score(*_to_1d_binary(true_np, preds_np), normalize=True)
         true_1d,_ = _to_1d_binary(true_np, preds_np)
-        accuracy_5 = top_k_accuracy_score(true_1d, preds_np, normalize=True, k=5)
 
         try:
+            accuracy_5 = top_k_accuracy_score(true_1d, preds_np, normalize=True, k=5)
             roc_auc = roc_auc_score(true_np, preds_np)
             pr_auc = average_precision_score(true_np, preds_np)
-        except Exception as e:
-            print("PR and ROC one class undefinition")
+        except Exception as e: # Undefinition for few classes
+            accuracy_5 = roc_auc = pr_auc = -1
 
 
         if config.evaluation == 'teacher':
@@ -260,6 +287,8 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
             insert_SQL("Inception", config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.bits,
                        config.distiller,accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", training_time,"Testing Time", testing_time,)
 
+        elif config.evaluation == 'cross_validation':
+            return accuracy
             
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)

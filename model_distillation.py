@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -29,7 +29,7 @@ from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
 
-# In[2]:
+# In[ ]:
 
 
 def RunTeacher(model, config):
@@ -54,7 +54,7 @@ def RunTeacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[3]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
@@ -121,6 +121,7 @@ def RunStudent(model, config, teachers):
     
     if config.distiller == 'cawpe':
         config.evaluation = 'cross_validation'
+        
         teacher_probs = train_probabilities(config)
         config.evaluation = 'student'
     
@@ -141,7 +142,7 @@ def RunStudent(model, config, teachers):
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[4]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -166,14 +167,14 @@ def recursive_weight(model,config,teacher_dic):
             del copy_weights[ordered_weights[i][0]]
             new_teachers = list(copy_weights.keys())
             accuracy, new_weights = RunStudent(model, config, new_teachers)
-            if len(new_teachers) > 5:
+            if len(new_teachers) > 8:
                 accuracy = recursive_weight(model,config,new_weights)
     else:
         min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
         del teacher_dic[min_key]
         new_teachers = list(teacher_dic.keys())
         accuracy, new_weights = RunStudent(model, config, new_teachers)
-        if len(new_teachers) > 5:
+        if len(new_teachers) > 2:
             accuracy = recursive_weight(model,config,new_weights)
     return accuracy
 
@@ -200,7 +201,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[5]:
+# In[ ]:
 
 
 class StudentBO():
@@ -252,7 +253,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[6]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -285,7 +286,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[7]:
+# In[ ]:
 
 
 def BayesianOptimization(config):
@@ -367,7 +368,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[8]:
+# In[ ]:
 
 
 if __name__ == '__main__':    

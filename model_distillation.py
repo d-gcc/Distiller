@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -29,7 +29,7 @@ from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
 
-# In[2]:
+# In[ ]:
 
 
 def RunTeacher(model, config):
@@ -54,7 +54,7 @@ def RunTeacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[3]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
@@ -142,7 +142,7 @@ def RunStudent(model, config, teachers):
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[4]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -159,10 +159,10 @@ def recursive_accuracy(model,config,max_accuracy,current_teachers):
     return max_accuracy # The value is not updated, so the recursivity continues
 
 def recursive_weight(model,config,teacher_dic):
-    ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
+    remove_max = config.remove_max
+    ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=remove_max)
     
-    
-    if len(list(teacher_dic.keys())) > 8:
+    if len(list(teacher_dic.keys())) > 8 and config.explore_branches > 1:
         for i in range(0,config.explore_branches):
             copy_weights = copy.deepcopy(teacher_dic)
             del copy_weights[ordered_weights[i][0]]
@@ -170,8 +170,12 @@ def recursive_weight(model,config,teacher_dic):
             _, new_weights = RunStudent(model, config, new_teachers)
             accuracy = recursive_weight(model,config,new_weights)
     else:
-        min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
-        del teacher_dic[min_key]
+        if remove_max:
+            remove_key = max(teacher_dic.keys(), key=lambda k: teacher_dic[k])
+        else:
+            remove_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
+            
+        del teacher_dic[remove_key]
         new_teachers = list(teacher_dic.keys())
         accuracy, new_weights = RunStudent(model, config, new_teachers)
         if len(new_teachers) > 2:
@@ -201,7 +205,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[5]:
+# In[ ]:
 
 
 class StudentBO():
@@ -253,7 +257,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[6]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -286,7 +290,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[7]:
+# In[ ]:
 
 
 def BayesianOptimization(config):
@@ -368,7 +372,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[8]:
+# In[ ]:
 
 
 if __name__ == '__main__':    
@@ -418,6 +422,7 @@ if __name__ == '__main__':
     parser.add_argument('--leaving_weights', type=str2bool, default=False)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
     parser.add_argument('--explore_branches', type=int, default=2)
+    parser.add_argument('--remove_max', type=str2bool, default=False)
     parser.add_argument('--cross_validation', type=int, default=5)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)

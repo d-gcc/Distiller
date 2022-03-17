@@ -163,11 +163,11 @@ def recursive_weight(model,config,teacher_dic):
 
 #    if len(list(teacher_dic.keys())) > config.explore_branches:
     for i in range(0,config.explore_branches):
-        copy_weights = copy.deepcopy(teacher_dic)
-        del copy_weights[ordered_weights[i][0]]
-        new_teachers = list(copy_weights.keys())
-        accuracy, new_weights = RunStudent(model, config, new_teachers)
         if len(new_teachers) > 8:
+            copy_weights = copy.deepcopy(teacher_dic)
+            del copy_weights[ordered_weights[i][0]]
+            new_teachers = list(copy_weights.keys())
+            accuracy, new_weights = RunStudent(model, config, new_teachers)
             accuracy = recursive_weight(model,config,new_weights)
         else:
             min_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])

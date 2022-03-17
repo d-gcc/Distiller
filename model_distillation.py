@@ -163,7 +163,7 @@ def recursive_weight(model,config,teacher_dic):
 
 #    if len(list(teacher_dic.keys())) > config.explore_branches:
     for i in range(0,config.explore_branches):
-        if len(new_teachers) > 8:
+        if len(teacher_dic) > 8:
             copy_weights = copy.deepcopy(teacher_dic)
             del copy_weights[ordered_weights[i][0]]
             new_teachers = list(copy_weights.keys())

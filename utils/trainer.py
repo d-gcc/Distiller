@@ -81,11 +81,11 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                 teachers_loss[teacher] += loss_div
                 batch_loss += loss_div
                 
-            with torch.no_grad():
-                teacher_losses, ensemble_weights = model_weights(teachers_loss)
-                if config.avoid_mult:
-                    ensemble_loss = torch.sum(teachers_loss)
-                else:
+            if config.avoid_mult:
+                ensemble_loss = torch.sum(teachers_loss)
+            else:
+                with torch.no_grad():
+                    teacher_losses, ensemble_weights = model_weights(teachers_loss)
                     ensemble_loss = torch.sum(teacher_losses)
             
         elif config.distiller == 'kd_baseline':

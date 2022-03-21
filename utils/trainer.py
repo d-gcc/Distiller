@@ -54,7 +54,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
     total_ce_loss = 0
         
     total_teacher_losses = np.empty(config.teachers)
-    
+
     for idx, data in enumerate(train_loader):
         batch_loss = 0
         teachers_loss = torch.zeros(config.teachers, dtype=torch.float32, device = config.device)
@@ -84,9 +84,12 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             if config.avoid_mult:
                 ensemble_loss = torch.sum(teachers_loss)
             else:
-                with torch.no_grad():
-                    teacher_losses, ensemble_weights = model_weights(teachers_loss)
-                    ensemble_loss = torch.sum(teacher_losses)
+                teacher_losses, ensemble_weights = model_weights(teachers_loss, train=True)
+                ensemble_loss = torch.sum(teacher_losses)
+                
+#             with torch.no_grad():
+#                 teacher_losses, ensemble_weights = model_weights(teachers_loss)
+#                 ensemble_loss = torch.sum(teacher_losses)
             
         elif config.distiller == 'kd_baseline':
             logit_list = []
@@ -188,7 +191,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
     total_ce_loss = 0
         
     total_teacher_losses = np.empty(config.teachers)
-    
+
     for idx, data in enumerate(val_loader):
         batch_loss = 0
         teachers_loss = torch.zeros(config.teachers, dtype=torch.float32, device = config.device)
@@ -223,7 +226,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')       
 
-        teacher_losses, ensemble_weights = model_weights(teachers_loss)
+        teacher_losses, ensemble_weights = model_weights(teachers_loss,train=False)
         ensemble_loss = torch.sum(teacher_losses)
 
         loss = config.w_ce * loss_cls + config.w_kl * ensemble_loss + config.w_other * loss_kd

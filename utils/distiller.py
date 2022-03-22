@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import torch
+import torch, copy
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -11,17 +11,18 @@ class TeacherWeights(nn.Module):
         
     def forward(self, x, train=True):
         if train:
-            with torch.no_grad():
-                w_nograd = self.W
+            w_nograd = copy.deepcopy(self.W)
+            w_nograd.requires_grad = False
             teacher_loss = torch.multiply(w_nograd, x)
             return teacher_loss, w_nograd
         else:
-            with torch.no_grad():
-                x_nograd = x
-            teacher_loss = torch.multiply(self.W, x_nograd)
-            return teacher_loss, self.W
+            x_nograd = copy.deepcopy(x)
+            x_nograd.requires_grad = False
+            teacher_weights = F.softmax(self.W, dim=0)
+            teacher_loss = torch.multiply(teacher_weights, x_nograd)
+            return teacher_loss, teacher_weights
     
-#     def forward(self, x):
+#     def forward(self, x, train=True):
 #         teacher_weights = F.softmax(self.W, dim=0) 
 #         teacher_loss = torch.multiply(self.W, x)
 #         return teacher_loss, self.W

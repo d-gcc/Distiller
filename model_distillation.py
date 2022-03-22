@@ -104,13 +104,14 @@ def RunStudent(model, config, teachers):
     if config.random_init_w:
         teacher_weights = torch.rand(config.teachers, device = config.device)
     else:
-        teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, device = config.device).squeeze()
+        teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, 
+                                     device = config.device).squeeze()
     
     weights_model = TeacherWeights(config, teacher_weights)
     module_list.append(weights_model)
     params.extend(list(weights_model.parameters()))
     optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
-    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr) #Adam ignores the bi-level
+    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr*config.sampling) #Adam ignores the bi-level
         
     module_list.to(config.device)
     criterion_list.to(config.device)
@@ -121,7 +122,6 @@ def RunStudent(model, config, teachers):
     
     if config.distiller == 'cawpe':
         config.evaluation = 'cross_validation'
-        
         teacher_probs = train_probabilities(config)
         config.evaluation = 'student'
     
@@ -131,7 +131,7 @@ def RunStudent(model, config, teachers):
         else:
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         
-        if config.learned_kl_w:
+        if config.learned_kl_w and (epoch) % config.sampling == 0:
             teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
         if (epoch) % 100 == 0:
             training_time = time.time() - start_training
@@ -139,6 +139,7 @@ def RunStudent(model, config, teachers):
         elif config.pid == 0:
             training_time = time.time() - start_training
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
+
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
@@ -159,8 +160,7 @@ def recursive_accuracy(model,config,max_accuracy,current_teachers):
     return max_accuracy # The value is not updated, so the recursivity continues
 
 def recursive_weight(model,config,teacher_dic):
-    remove_max = config.remove_max
-    ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=remove_max)
+    ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
     
     if len(list(teacher_dic.keys())) > 8 and config.explore_branches > 1:
         for i in range(0,config.explore_branches):
@@ -170,10 +170,7 @@ def recursive_weight(model,config,teacher_dic):
             _, new_weights = RunStudent(model, config, new_teachers)
             accuracy = recursive_weight(model,config,new_weights)
     else:
-        if remove_max:
-            remove_key = max(teacher_dic.keys(), key=lambda k: teacher_dic[k])
-        else:
-            remove_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
+        remove_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
             
         del teacher_dic[remove_key]
         new_teachers = list(teacher_dic.keys())
@@ -412,17 +409,17 @@ if __name__ == '__main__':
     parser.add_argument('--teachers', type=int, default=10)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
-    parser.add_argument('--w_kl', type=float, default=1, help='weight for KL')
+    parser.add_argument('--w_kl', type=float, default=0.1, help='weight for KL')
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
     parser.add_argument('--leaving_weights', type=str2bool, default=False)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
     parser.add_argument('--explore_branches', type=int, default=2)
-    parser.add_argument('--remove_max', type=str2bool, default=False)
+    parser.add_argument('--sampling', type=int, default=5)
     parser.add_argument('--cross_validation', type=int, default=5)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
@@ -495,4 +492,10 @@ if __name__ == '__main__':
 
         model_s = model_s.to(config.device)
         StudentDistillation(model_s, config)
+
+
+# In[ ]:
+
+
+
 

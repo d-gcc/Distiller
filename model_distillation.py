@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -29,7 +29,7 @@ from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
 
-# In[2]:
+# In[ ]:
 
 
 def RunTeacher(model, config):
@@ -54,7 +54,7 @@ def RunTeacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[3]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
@@ -111,7 +111,7 @@ def RunStudent(model, config, teachers):
     module_list.append(weights_model)
     params.extend(list(weights_model.parameters()))
     optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
-    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr*10) #Adam ignores the bi-level
+    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr) #Adam ignores the bi-level
         
     module_list.to(config.device)
     criterion_list.to(config.device)
@@ -138,12 +138,13 @@ def RunStudent(model, config, teachers):
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
         elif config.pid == 0:
             training_time = time.time() - start_training
+            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
 
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[4]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -209,7 +210,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[5]:
+# In[ ]:
 
 
 class StudentBO():
@@ -261,7 +262,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[6]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -294,7 +295,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[7]:
+# In[ ]:
 
 
 def BayesianOptimization(config):
@@ -376,7 +377,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[8]:
+# In[ ]:
 
 
 if __name__ == '__main__':    
@@ -421,13 +422,13 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
-    parser.add_argument('--leaving_weights', type=str2bool, default=True)
+    parser.add_argument('--leaving_weights', type=str2bool, default=False)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
     parser.add_argument('--explore_branches', type=int, default=1)
-    parser.add_argument('--val_epochs', type=int, default=5)
-    parser.add_argument('--gumbel', type=float, default=1.0)
+    parser.add_argument('--val_epochs', type=int, default=1)
+    parser.add_argument('--gumbel', type=float, default=-1.0)
     parser.add_argument('--cross_validation', type=int, default=5)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -29,7 +29,7 @@ from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
 
-# In[ ]:
+# In[2]:
 
 
 def RunTeacher(model, config):
@@ -54,7 +54,7 @@ def RunTeacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[ ]:
+# In[3]:
 
 
 def RunStudent(model, config, teachers):
@@ -111,7 +111,7 @@ def RunStudent(model, config, teachers):
     module_list.append(weights_model)
     params.extend(list(weights_model.parameters()))
     optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
-    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr*config.sampling) #Adam ignores the bi-level
+    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr*10) #Adam ignores the bi-level
         
     module_list.to(config.device)
     criterion_list.to(config.device)
@@ -131,7 +131,7 @@ def RunStudent(model, config, teachers):
         else:
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         
-        if config.learned_kl_w and (epoch) % config.sampling == 0:
+        if config.learned_kl_w and (epoch) % config.val_epochs == 0:
             teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
         if (epoch) % 100 == 0:
             training_time = time.time() - start_training
@@ -143,7 +143,7 @@ def RunStudent(model, config, teachers):
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[ ]:
+# In[4]:
 
 
 def remove_elements(x):
@@ -160,7 +160,15 @@ def recursive_accuracy(model,config,max_accuracy,current_teachers):
     return max_accuracy # The value is not updated, so the recursivity continues
 
 def recursive_weight(model,config,teacher_dic):
-    ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
+    
+    if config.gumbel > 0:
+        weights_tensor = torch.tensor(list(teacher_dic.values()))
+        weights_tensor.requires_grad = False
+        choice = F.gumbel_softmax(weights_tensor.mul(-1), tau = config.gumbel, dim=0)
+        weights_choice = dict(zip(list(teacher_dic.keys()), choice.tolist()))
+        ordered_weights = sorted(weights_choice.items(), key=lambda x: x[1], reverse=True)
+    else:
+        ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
     
     if len(list(teacher_dic.keys())) > 8 and config.explore_branches > 1:
         for i in range(0,config.explore_branches):
@@ -170,9 +178,8 @@ def recursive_weight(model,config,teacher_dic):
             _, new_weights = RunStudent(model, config, new_teachers)
             accuracy = recursive_weight(model,config,new_weights)
     else:
-        remove_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
-            
-        del teacher_dic[remove_key]
+        #remove_key = min(teacher_dic.keys(), key=lambda k: teacher_dic[k])
+        del teacher_dic[ordered_weights[0][0]]
         new_teachers = list(teacher_dic.keys())
         accuracy, new_weights = RunStudent(model, config, new_teachers)
         if len(new_teachers) > 2:
@@ -202,7 +209,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[ ]:
+# In[5]:
 
 
 class StudentBO():
@@ -254,7 +261,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[ ]:
+# In[6]:
 
 
 class MetricAccuracy(Metric):
@@ -287,7 +294,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[ ]:
+# In[7]:
 
 
 def BayesianOptimization(config):
@@ -369,7 +376,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[ ]:
+# In[8]:
 
 
 if __name__ == '__main__':    
@@ -416,10 +423,11 @@ if __name__ == '__main__':
     parser.add_argument('--leaving_out', type=str2bool, default=False)
     parser.add_argument('--learned_kl_w', type=str2bool, default=True)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
-    parser.add_argument('--leaving_weights', type=str2bool, default=False)
+    parser.add_argument('--leaving_weights', type=str2bool, default=True)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
-    parser.add_argument('--explore_branches', type=int, default=2)
-    parser.add_argument('--sampling', type=int, default=5)
+    parser.add_argument('--explore_branches', type=int, default=1)
+    parser.add_argument('--val_epochs', type=int, default=5)
+    parser.add_argument('--gumbel', type=float, default=1.0)
     parser.add_argument('--cross_validation', type=int, default=5)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)

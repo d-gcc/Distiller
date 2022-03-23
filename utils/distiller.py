@@ -8,24 +8,24 @@ class TeacherWeights(nn.Module):
     def __init__(self, config, weights):
         super(TeacherWeights,self).__init__()
         self.W = torch.nn.Parameter(weights)
+        self.config = config
         
     def forward(self, x, train=True):
-        if train:
-            w_nograd = copy.deepcopy(self.W)
-            w_nograd.requires_grad = False
-            teacher_loss = torch.multiply(w_nograd, x)
-            return teacher_loss, w_nograd
+        if self.config.leaving_out:
+            teacher_loss = torch.multiply(self.W, x)
+            return teacher_loss, self.W
         else:
-            x_nograd = copy.deepcopy(x)
-            x_nograd.requires_grad = False
-            teacher_weights = F.softmax(self.W, dim=0)
-            teacher_loss = torch.multiply(teacher_weights, x_nograd)
-            return teacher_loss, teacher_weights
-    
-#     def forward(self, x, train=True):
-#         teacher_weights = F.softmax(self.W, dim=0) 
-#         teacher_loss = torch.multiply(self.W, x)
-#         return teacher_loss, self.W
+            if train:
+                w_nograd = copy.deepcopy(self.W)
+                w_nograd.requires_grad = False
+                teacher_loss = torch.multiply(w_nograd, x)
+                return teacher_loss, w_nograd
+            else:
+                x_nograd = copy.deepcopy(x)
+                x_nograd.requires_grad = False
+                teacher_weights = F.softmax(self.W, dim=0)
+                teacher_loss = torch.multiply(teacher_weights, x_nograd)
+                return teacher_loss, teacher_weights
 
 class DistillKL(nn.Module):
     def __init__(self, T):

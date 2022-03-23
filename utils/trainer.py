@@ -123,7 +123,6 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                 loss_s.backward(retain_graph=True)
                 loss_div_list.append(loss_s)
 
-
             scale = find_optimal_svm(torch.stack(grads),device=config.device)
             losses_div_tensor = torch.stack(loss_div_list)
 
@@ -164,7 +163,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')       
 
-        loss = config.w_ce * loss_cls + config.w_kl * ensemble_loss + config.w_other * loss_kd
+        loss = config.w_ce * loss_cls + config.teachers * ensemble_loss + config.w_other * loss_kd
 
         total_kl += batch_loss
         total_ce_loss += loss_cls

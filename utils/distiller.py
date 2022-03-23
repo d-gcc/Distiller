@@ -18,7 +18,8 @@ class TeacherWeights(nn.Module):
             if train:
                 w_nograd = copy.deepcopy(self.W)
                 w_nograd.requires_grad = False
-                teacher_loss = torch.multiply(w_nograd, x)
+                teacher_weights = F.softmax(w_nograd, dim=0)
+                teacher_loss = torch.multiply(teacher_weights, x)
                 return teacher_loss, w_nograd
             else:
                 x_nograd = copy.deepcopy(x)

@@ -163,7 +163,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         else:
             loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')       
 
-        if config.w_kl < 0:
+        if config.w_kl = -1:
             loss = config.w_ce * loss_cls + config.teachers * ensemble_loss + config.w_other * loss_kd
         else:
             loss = config.w_ce * loss_cls + config.w_kl * ensemble_loss + config.w_other * loss_kd
@@ -231,7 +231,7 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
         teacher_losses, ensemble_weights = model_weights(teachers_loss,train=False)
         ensemble_loss = torch.sum(teacher_losses)
 
-        if config.w_kl < 0:
+        if config.w_kl = -1:
             loss = config.w_ce * loss_cls + config.teachers * ensemble_loss + config.w_other * loss_kd
         else:
             loss = config.w_ce * loss_cls + config.w_kl * ensemble_loss + config.w_other * loss_kd

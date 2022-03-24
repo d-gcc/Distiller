@@ -19,13 +19,13 @@ class TeacherWeights(nn.Module):
                 w_nograd = copy.deepcopy(self.W)
                 w_nograd.requires_grad = False
                 teacher_weights = F.softmax(w_nograd, dim=0)
-                teacher_loss = torch.multiply(w_nograd, x)
+                teacher_loss = torch.multiply(teacher_weights, x)
                 return teacher_loss, w_nograd
             else:
                 x_nograd = copy.deepcopy(x)
                 x_nograd.requires_grad = False
                 teacher_weights = F.softmax(self.W, dim=0)
-                teacher_loss = torch.multiply(self.W, x_nograd)
+                teacher_loss = torch.multiply(teacher_weights, x_nograd)
                 return teacher_loss, teacher_weights
 
 class DistillKL(nn.Module):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -29,7 +29,7 @@ from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
 
-# In[ ]:
+# In[2]:
 
 
 def RunTeacher(model, config):
@@ -54,7 +54,7 @@ def RunTeacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[ ]:
+# In[3]:
 
 
 def RunStudent(model, config, teachers):
@@ -103,9 +103,13 @@ def RunStudent(model, config, teachers):
 
     if config.random_init_w:
         teacher_weights = torch.rand(config.teachers, device = config.device)
+    elif config.specific_teachers:
+        teacher_weights = torch.tensor([float(item) for item in config.list_weights.split(',')])
+        print(teacher_weights)
     else:
         teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, 
                                      device = config.device).squeeze()
+    
     
     weights_model = TeacherWeights(config, teacher_weights)
     module_list.append(weights_model)
@@ -144,7 +148,7 @@ def RunStudent(model, config, teachers):
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[ ]:
+# In[4]:
 
 
 def remove_elements(x):
@@ -210,7 +214,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[ ]:
+# In[5]:
 
 
 class StudentBO():
@@ -262,7 +266,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[ ]:
+# In[6]:
 
 
 class MetricAccuracy(Metric):
@@ -295,7 +299,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[ ]:
+# In[7]:
 
 
 def BayesianOptimization(config):
@@ -377,7 +381,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[ ]:
+# In[8]:
 
 
 if __name__ == '__main__':    
@@ -417,7 +421,7 @@ if __name__ == '__main__':
     parser.add_argument('--teachers', type=int, default=10)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
-    parser.add_argument('--w_kl', type=float, default=0.1, help='weight for KL')
+    parser.add_argument('--w_kl', type=float, default=10, help='weight for KL')
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
@@ -433,6 +437,7 @@ if __name__ == '__main__':
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")
+    parser.add_argument('--list_weights', type=str, default="0.2,1.12,2.12")
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)

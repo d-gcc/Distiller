@@ -18,11 +18,11 @@ class TeacherWeights(nn.Module):
             if train:
                 w_nograd = copy.deepcopy(self.W)
                 w_nograd.requires_grad = False
-                if self.config.gumbel > 0:
-                    teacher_gs = F.gumbel_softmax(w_nograd, tau = self.config.gumbel, dim=0)
-                    teacher_weights = F.softmax(teacher_gs.mul(-1), dim=0)
-                else:
-                    teacher_weights = F.softmax(w_nograd, dim=0)
+#                 if self.config.gumbel > 0:
+#                     teacher_gs = F.gumbel_softmax(w_nograd, tau = self.config.gumbel, dim=0)
+#                     teacher_weights = F.softmax(teacher_gs.mul(-1), dim=0)
+#                 else:
+                teacher_weights = F.softmax(w_nograd, dim=0)
                 teacher_loss = torch.multiply(teacher_weights, x)
                 return teacher_loss, w_nograd
             else:

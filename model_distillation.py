@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -29,7 +29,7 @@ from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
 
-# In[2]:
+# In[ ]:
 
 
 def RunTeacher(model, config):
@@ -54,7 +54,7 @@ def RunTeacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[3]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
@@ -114,7 +114,7 @@ def RunStudent(model, config, teachers):
     module_list.append(weights_model)
     params.extend(list(weights_model.parameters()))
     optimizer = torch.optim.Adam(model_s.parameters(), lr=config.lr)
-    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr) #Adam ignores the bi-level
+    optimizer_w = torch.optim.SGD(weights_model.parameters(), lr=config.lr_w) #Adam ignores the bi-level
         
     module_list.to(config.device)
     criterion_list.to(config.device)
@@ -147,7 +147,7 @@ def RunStudent(model, config, teachers):
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[4]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -213,7 +213,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[5]:
+# In[ ]:
 
 
 class StudentBO():
@@ -265,7 +265,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[6]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -298,7 +298,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[7]:
+# In[ ]:
 
 
 def BayesianOptimization(config):
@@ -380,13 +380,13 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[8]:
+# In[ ]:
 
 
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--fff", help="A dummy argument for Jupyter", default="1")
-    parser.add_argument('--experiment', type=str, default='SyntheticControl') 
+    parser.add_argument('--experiment', type=str, default='Adiac') 
 
     # Quantization
     parser.add_argument('--bits', type=int, default=32)
@@ -402,6 +402,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--val_size', type=float, default=0.2)
     parser.add_argument('--lr', type=float, default=0.01)
+    parser.add_argument('--lr_w', type=float, default=0.01)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=5e-4)
     parser.add_argument('--epochs', type=int, default=5)
@@ -420,7 +421,7 @@ if __name__ == '__main__':
     parser.add_argument('--teachers', type=int, default=10)
 
     parser.add_argument('--w_ce', type=float, default=1, help='weight for cross entropy')
-    parser.add_argument('--w_kl', type=float, default=10, help='weight for KL')
+    parser.add_argument('--w_kl', type=float, default=-1, help='weight for KL')
     parser.add_argument('--w_other', type=float, default=0.1, help='weight for other losses')
     
     # Leaving-out, learned weights
@@ -435,8 +436,8 @@ if __name__ == '__main__':
     parser.add_argument('--cross_validation', type=int, default=5)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
-    parser.add_argument('--list_teachers', type=str, default="0,1,2")
-    parser.add_argument('--list_weights', type=str, default="0.2,-1.12,2.12")
+    parser.add_argument('--list_teachers', type=str, default="2,4,5,7,9")
+    parser.add_argument('--list_weights', type=str, default="0.1,0.4,0.4")
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)

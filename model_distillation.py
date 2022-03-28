@@ -105,7 +105,6 @@ def RunStudent(model, config, teachers):
         teacher_weights = torch.rand(config.teachers, device = config.device)
     elif config.specific_teachers:
         teacher_weights = torch.tensor([float(item) for item in config.list_weights.split(',')])
-        print(teacher_weights)
     else:
         teacher_weights = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, 
                                      device = config.device).squeeze()
@@ -166,14 +165,14 @@ def recursive_accuracy(model,config,max_accuracy,current_teachers):
 
 def recursive_weight(model,config,teacher_dic):
     
-    if config.gumbel > 0:
-        weights_tensor = torch.tensor(list(teacher_dic.values()))
-        weights_tensor.requires_grad = False
-        choice = F.gumbel_softmax(weights_tensor.mul(-1), tau = config.gumbel, dim=0)
-        weights_choice = dict(zip(list(teacher_dic.keys()), choice.tolist()))
-        ordered_weights = sorted(weights_choice.items(), key=lambda x: x[1], reverse=True)
-    else:
-        ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
+#     if config.gumbel > 0:
+#         weights_tensor = torch.tensor(list(teacher_dic.values()))
+#         weights_tensor.requires_grad = False
+#         choice = F.gumbel_softmax(weights_tensor.mul(-1), tau = config.gumbel, dim=0)
+#         weights_choice = dict(zip(list(teacher_dic.keys()), choice.tolist()))
+#         ordered_weights = sorted(weights_choice.items(), key=lambda x: x[1], reverse=True)
+#     else:
+    ordered_weights = sorted(teacher_dic.items(), key=lambda x: x[1], reverse=False)
     
     if len(list(teacher_dic.keys())) > 8 and config.explore_branches > 1:
         for i in range(0,config.explore_branches):
@@ -426,18 +425,18 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
-    parser.add_argument('--leaving_weights', type=str2bool, default=False)
+    parser.add_argument('--leaving_weights', type=str2bool, default=True)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
     parser.add_argument('--explore_branches', type=int, default=1)
     parser.add_argument('--val_epochs', type=int, default=1)
-    parser.add_argument('--gumbel', type=float, default=-1.0)
+    parser.add_argument('--gumbel', type=float, default=1.0)
     parser.add_argument('--cross_validation', type=int, default=5)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="0,1,2")
-    parser.add_argument('--list_weights', type=str, default="0.2,1.12,2.12")
+    parser.add_argument('--list_weights', type=str, default="0.2,-1.12,2.12")
     
     # SAX - PAA
     parser.add_argument('--use_sax', type=int, default=0)

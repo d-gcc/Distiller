@@ -289,8 +289,9 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
             except:
                 pass
 
-            insert_SQL("Inception", config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.bits,
-                       config.distiller,accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", training_time,"Testing Time", testing_time,)
+            insert_SQL("Inception", config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.teachers,
+                       config.distiller, accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", 
+                       training_time,"Testing Time", testing_time)
 
         elif config.evaluation == 'cross_validation':
             return accuracy

@@ -16,6 +16,7 @@ from utils.inception import InceptionModel
 import copy
 from torch.autograd import Variable
 
+from sktime.datatypes._panel._convert import from_2d_array_to_nested
 
 def train_single(epoch, train_loader, model, optimizer, config):
     model.train()
@@ -37,7 +38,7 @@ def train_single(epoch, train_loader, model, optimizer, config):
         optimizer.step()
     
 
-def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs = 0):
+def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs = 0, t_list = 0):
 
     for module in module_list:
         module.eval()
@@ -72,10 +73,15 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         
         if config.distiller == 'kd':
             for teacher in range(0,config.teachers):
-                model_t = module_list[teacher+1]
-
-                with torch.no_grad():
-                    feat_t, logit_t = model_t(input)
+                
+                if config.teacher_sk_type == 'Inception':
+                    model_t = module_list[teacher+1]
+                    with torch.no_grad():
+                        feat_t, logit_t = model_t(input)
+                else:
+                    X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                    logit_t_np = t_list[teacher].predict_proba(X_test)
+                    logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
 
                 loss_div = criterion_div(logit_s, logit_t)
                 teachers_loss[teacher] += loss_div
@@ -173,7 +179,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         optimizer.step()
 
 
-def validation(epoch, val_loader, module_list, criterion_list, optimizer, config):
+def validation(epoch, val_loader, module_list, criterion_list, optimizer, config, t_list = 0):
 
     for module in module_list:
         module.eval()
@@ -209,11 +215,15 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
         for teacher in range(0,config.teachers):
-            model_t = module_list[teacher+1]
-
-            with torch.no_grad():
-                feat_t, logit_t = model_t(input)
-
+            if config.teacher_sk_type == 'Inception':
+                model_t = module_list[teacher+1]
+                with torch.no_grad():
+                    feat_t, logit_t = model_t(input)
+            else:
+                X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                logit_t_np = t_list[teacher].predict_proba(X_test)
+                logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                    
             loss_div = criterion_div(logit_s, logit_t)
             teachers_loss[teacher] += loss_div
             batch_loss += loss_div
@@ -289,7 +299,7 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
             except:
                 pass
 
-            insert_SQL("Inception", config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.teachers,
+            insert_SQL(config.teacher_sk_type, config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.teachers,
                        config.distiller, accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", 
                        training_time,"Testing Time", testing_time)
 

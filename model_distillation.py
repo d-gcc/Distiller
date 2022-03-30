@@ -126,20 +126,28 @@ def RunStudent(model, config, teachers):
         criterion_list.append(DistillKL(config.kd_temperature))
 
     # Teachers
-    for teacher in teachers:
-        savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
-        teacher_config = copy.deepcopy(config)
-        teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
-        teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
-        model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
-                       bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
-                       num_pred_classes=config.num_classes,config=teacher_config)
+    teacher_list = []
+    if config.teacher_sk_type == 'Inception':
+        for teacher in teachers:
+            savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
+            teacher_config = copy.deepcopy(config)
+            teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
+            teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
+            model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
+                           bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
+                           num_pred_classes=config.num_classes,config=teacher_config)
 
-        model_t.load_state_dict(torch.load(savepath, map_location=config.device))
-        model_t.eval()
-        model_t = model_t.to(config.device)
-        module_list.append(model_t)
-
+            model_t.load_state_dict(torch.load(savepath, map_location=config.device))
+            model_t.eval()
+            model_t = model_t.to(config.device)
+            module_list.append(model_t)
+    else:
+        for teacher in teachers:
+            savepath = Path('./teachers/'+ config.teacher_sk_type + '_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
+            with open(savepath,'rb') as file:
+                pickle_saved = pickle.load(file)
+            teacher_list.append(pickle_saved)
+            
     if config.random_init_w:
         teacher_weights = torch.rand(config.teachers, device = config.device)
     elif config.specific_teachers:
@@ -170,17 +178,19 @@ def RunStudent(model, config, teachers):
     for epoch in range(1, config.epochs + 1):
         if config.distiller == 'cawpe':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
-        else:
+        elif config.teacher_sk_type == 'Inception':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
+        else:
+            train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, t_list = teacher_list)
         
         if config.learned_kl_w and (epoch) % config.val_epochs == 0:
-            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
+            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_list)
         if (epoch) % 100 == 0:
             training_time = time.time() - start_training
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
         elif config.pid == 0:
             training_time = time.time() - start_training
-            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
+            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_list)
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
 
     return accuracy, dict(zip(teachers, teacher_weights))
@@ -449,9 +459,9 @@ if __name__ == '__main__':
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-    parser.add_argument('--evaluation', type=str, default='teacher_sk', 
+    parser.add_argument('--evaluation', type=str, default='student', 
                         choices=['teacher','teacher_sk', 'student', 'teacher_ensemble', 'student_bo'])
-    parser.add_argument('--teacher_sk_type', type=str, default='Proximity')
+    parser.add_argument('--teacher_sk_type', type=str, default='DrCIF')
     parser.add_argument('--bo_init', type=int, default=50)
     parser.add_argument('--bo_steps', type=int, default=50)
     

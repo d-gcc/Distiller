@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch.nn.parameter import Parameter
 from pathlib import Path
-from utils.data import get_loaders
+from utils.data import get_loaders, get_raw_data
 from utils.util import str2bool, get_free_device 
 from utils.inception import InceptionModel
 from utils.distiller import DistillKL, KDEnsemble, TeacherWeights
@@ -28,11 +28,50 @@ from ax.plot.pareto_utils import compute_posterior_pareto_frontier
 from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
+from sktime.classification.interval_based import TimeSeriesForestClassifier, DrCIF
+from sktime.classification.distance_based import ProximityForest
+from sktime.datatypes._panel._convert import from_2d_array_to_nested
+import pickle
 
-# In[ ]:
+
+# In[2]:
 
 
-def RunTeacher(model, config):
+def Run_SK_Teacher(config):
+    training, validation, testing = get_raw_data(config)
+    
+    X_train = from_2d_array_to_nested(training.x.squeeze().cpu().detach().numpy())
+    y_train = training.y.squeeze().cpu().detach().numpy()
+    
+    X_test = from_2d_array_to_nested(testing.x.squeeze().cpu().detach().numpy())
+    y_test = testing.y.squeeze().cpu().detach().numpy()
+
+    if config.teacher_sk_type == 'DrCIF':
+        classifier = DrCIF(random_state=config.init_seed)
+    elif config.teacher_sk_type == 'Forest':
+        classifier = TimeSeriesForestClassifier(random_state=config.init_seed)
+    elif config.teacher_sk_type == 'Proximity':
+        classifier = ProximityForest(random_state=config.init_seed)
+    
+    classifier.fit(X_train, y_train)
+    
+    model_name = f'{config.teacher_sk_type}_{config.experiment}_{config.init_seed}_teacher.pkl'
+    savepath = "./teachers/" + model_name
+    
+    with open(savepath,'wb') as file:
+        pickle.dump(classifier,file)
+        
+#     with open(savepath,'rb') as file:
+#         pickle_saved = pickle.load(file)
+        
+#     y_pred = pickle_saved.predict_proba(X_test)
+#     print(y_pred)
+
+
+# In[3]:
+
+
+def Run_NN_Teacher(model, config):
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     train_loader, val_loader, test_loader = get_loaders(config)
     best_accuracy = 0
@@ -54,7 +93,7 @@ def RunTeacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[ ]:
+# In[4]:
 
 
 def RunStudent(model, config, teachers):
@@ -147,7 +186,7 @@ def RunStudent(model, config, teachers):
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[ ]:
+# In[5]:
 
 
 def remove_elements(x):
@@ -213,7 +252,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[ ]:
+# In[6]:
 
 
 class StudentBO():
@@ -265,7 +304,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[ ]:
+# In[7]:
 
 
 class MetricAccuracy(Metric):
@@ -298,7 +337,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[ ]:
+# In[8]:
 
 
 def BayesianOptimization(config):
@@ -386,7 +425,7 @@ def BayesianOptimization(config):
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--fff", help="A dummy argument for Jupyter", default="1")
-    parser.add_argument('--experiment', type=str, default='Adiac') 
+    parser.add_argument('--experiment', type=str, default='SyntheticControl') 
 
     # Quantization
     parser.add_argument('--bits', type=int, default=32)
@@ -410,8 +449,9 @@ if __name__ == '__main__':
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-    parser.add_argument('--evaluation', type=str, default='student', 
-                        choices=['teacher', 'student', 'teacher_ensemble', 'student_bo'])
+    parser.add_argument('--evaluation', type=str, default='teacher_sk', 
+                        choices=['teacher','teacher_sk', 'student', 'teacher_ensemble', 'student_bo'])
+    parser.add_argument('--teacher_sk_type', type=str, default='Proximity')
     parser.add_argument('--bo_init', type=int, default=50)
     parser.add_argument('--bo_steps', type=int, default=50)
     
@@ -492,8 +532,15 @@ if __name__ == '__main__':
             torch.manual_seed(teacher)
             torch.cuda.manual_seed(teacher)
             torch.backends.cudnn.deterministic = True
-            RunTeacher(model_t, config)
-            
+            Run_NN_Teacher(model_t, config)
+    elif config.evaluation == 'teacher_sk':
+        for teacher in range(0,config.teachers):
+            config.init_seed = teacher
+            np.random.seed(teacher)
+            torch.manual_seed(teacher)
+            torch.cuda.manual_seed(teacher)
+            torch.backends.cudnn.deterministic = True
+            Run_SK_Teacher(config)
     elif config.evaluation == 'teacher_ensemble':
         TeacherEvaluation(config)
     elif config.evaluation == 'student_bo':

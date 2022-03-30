@@ -37,14 +37,18 @@ class InputData:
 
 
 
-def load_ucr_data(config) -> Tuple[InputData, InputData]:
+def load_ucr_data(config, use_encoder=True) -> Tuple[InputData, InputData]:
 
     train = np.loadtxt(config.data_folder / config.experiment /f'{config.experiment}_TRAIN.tsv', delimiter='\t')
     test = np.loadtxt(config.data_folder / config.experiment /f'{config.experiment}_TEST.tsv', delimiter='\t')
 
-    encoder = OneHotEncoder(categories='auto', sparse=False)
-    y_train = encoder.fit_transform(np.expand_dims(train[:, 0], axis=-1))
-    y_test = encoder.transform(np.expand_dims(test[:, 0], axis=-1))
+    if use_encoder:
+        encoder = OneHotEncoder(categories='auto', sparse=False)
+        y_train = encoder.fit_transform(np.expand_dims(train[:, 0], axis=-1))
+        y_test = encoder.transform(np.expand_dims(test[:, 0], axis=-1))
+    else:
+        y_train = np.expand_dims(train[:, 0], axis=-1)
+        y_test = np.expand_dims(test[:, 0], axis=-1)
 
     if y_train.shape[1] == 2:
         y_train = y_train[:, 0]
@@ -129,6 +133,13 @@ def get_loaders(config):
     test_loader = DataLoader(TensorDataset(test_data.x, test_data.y),batch_size=config.batch_size,shuffle=False)
     
     return train_loader, val_loader, test_loader
+
+def get_raw_data(config):
+
+    train_data, test_data = load_ucr_data(config, use_encoder=False)
+    train_data, val_data = train_data.split(config.val_size)
+    
+    return train_data, val_data, test_data
 
 def get_kfold_loaders(config):
     train_loaders = []

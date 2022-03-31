@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import os
+import pickle
 
 from pathlib import Path
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score, top_k_accuracy_score
@@ -74,7 +75,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         if config.distiller == 'kd':
             for teacher in range(0,config.teachers):
                 
-                if config.teacher_sk_type == 'Inception':
+                if config.teacher_type == 'Inception':
                     model_t = module_list[teacher+1]
                     with torch.no_grad():
                         feat_t, logit_t = model_t(input)
@@ -215,13 +216,13 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
         for teacher in range(0,config.teachers):
-            if config.teacher_sk_type == 'Inception':
+            if config.teacher_type == 'Inception':
                 model_t = module_list[teacher+1]
                 with torch.no_grad():
                     feat_t, logit_t = model_t(input)
             else:
-                X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
-                logit_t_np = t_list[teacher].predict_proba(X_test)
+                X_val = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                logit_t_np = t_list[teacher].predict_proba(X_val)
                 logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
                     
             loss_div = criterion_div(logit_s, logit_t)
@@ -299,7 +300,7 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
             except:
                 pass
 
-            insert_SQL(config.teacher_sk_type, config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.teachers,
+            insert_SQL(config.teacher_type, config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.teachers,
                        config.distiller, accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", 
                        training_time,"Testing Time", testing_time)
 
@@ -319,35 +320,68 @@ def evaluate_ensemble(test_loader, config):
     
     teachers = [i for i in range(0,config.teachers)]
     ensemble_result = []
-    for teacher in teachers:
-        savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
-        teacher_config = copy.deepcopy(config)
-        teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
-        teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
-        model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
-                       bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
-                       num_pred_classes=config.num_classes,config=teacher_config)
+    if config.teacher_type == 'Inception':
+        for teacher in teachers:
+            savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
+            teacher_config = copy.deepcopy(config)
+            teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
+            teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
+            model_t = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
+                           bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
+                           num_pred_classes=config.num_classes,config=teacher_config)
 
-        model_t.load_state_dict(torch.load(savepath, map_location=config.device))
-        model_t.eval()
-        model_t = model_t.to(config.device)
+            model_t.load_state_dict(torch.load(savepath, map_location=config.device))
+            model_t.eval()
+            model_t = model_t.to(config.device)
 
-        with torch.no_grad():
+            
+            with torch.no_grad():
+                true_list, preds_list = [], []
+                for x, y in test_loader:
+                    x, y = x.to(config.device), y.to(config.device)
+                    with torch.no_grad():
+                        true_list.append(y.cpu().detach().numpy())
+                        _, preds = model_t(x)
+                        if len(y.shape) == 1:
+                            preds = torch.sigmoid(preds)
+                        else:
+                            preds = torch.softmax(preds, dim=-1)
+                        preds_list.append(preds)
+
+                true_np, preds_tensor = np.concatenate(true_list), torch.cat(preds_list)
+            ensemble_result.append(preds_tensor)
+
+    else:
+        for teacher in teachers:
+            savepath = Path('./teachers/'+ config.teacher_type + '_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
+            with open(savepath,'rb') as file:
+                pickle_saved = pickle.load(file)
             true_list, preds_list = [], []
+            
             for x, y in test_loader:
                 x, y = x.to(config.device), y.to(config.device)
-                with torch.no_grad():
-                    true_list.append(y.cpu().detach().numpy())
-                    _, preds = model_t(x)
-                    if len(y.shape) == 1:
-                        preds = torch.sigmoid(preds)
-                    else:
-                        preds = torch.softmax(preds, dim=-1)
-                    preds_list.append(preds)
-
+                true_list.append(y.cpu().detach().numpy())
+                X_test = from_2d_array_to_nested(x.squeeze().cpu().detach().numpy())
+                logit_t_np = pickle_saved.predict_proba(X_test)
+                logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                
+                if len(y.shape) == 1:
+                    preds = torch.sigmoid(logit_t)
+                else:
+                    preds = torch.softmax(logit_t, dim=-1)
+                preds_list.append(preds)
             true_np, preds_tensor = np.concatenate(true_list), torch.cat(preds_list)
-        ensemble_result.append(preds_tensor)
+            sum_np = preds_tensor.cpu().detach().numpy()
+            accuracy = accuracy_score(*_to_1d_binary(true_np, sum_np), normalize=True)
+            true_1d,_ = _to_1d_binary(true_np, sum_np)
+            accuracy_5 = top_k_accuracy_score(true_1d, sum_np, normalize=True, k=5)
 
+            type_q = "Full precision: " + str(config.bits)
+            insert_SQL(config.teacher_type, config.pid, config.experiment, "Teacher", teacher, type_q, 
+                       config.bits, config.distiller, accuracy, "Top 5", accuracy_5, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
+
+        ensemble_result.append(preds_tensor)
+        
     sum_probabilities = torch.stack(ensemble_result).sum(dim=0)
     sum_np = sum_probabilities.cpu().detach().numpy()
 
@@ -356,8 +390,7 @@ def evaluate_ensemble(test_loader, config):
     accuracy_5 = top_k_accuracy_score(true_1d, sum_np, normalize=True, k=5)
 
     type_q = "Full precision: " + str(config.bits)
-    insert_SQL("Inception", config.pid, config.experiment, "Teacher Ensemble", 0, type_q, config.bits, config.distiller,
+    insert_SQL(config.teacher_type, config.pid, config.experiment, "Teacher Ensemble", 0, type_q, config.bits, config.distiller,
                accuracy, "Top 5", accuracy_5, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
 
-    
     return accuracy

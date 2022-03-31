@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -28,13 +28,17 @@ from ax.plot.pareto_utils import compute_posterior_pareto_frontier
 from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
-from sktime.classification.interval_based import TimeSeriesForestClassifier, DrCIF
-from sktime.classification.distance_based import ProximityForest
+from sktime.classification.interval_based import TimeSeriesForestClassifier, CanonicalIntervalForest
+from sktime.classification.distance_based import ProximityTree
+from sktime.classification.dictionary_based import IndividualBOSS, IndividualTDE
+from sktime.classification.feature_based import MatrixProfileClassifier
+#from sktime.classification.kernel_based import RocketClassifier
+
 from sktime.datatypes._panel._convert import from_2d_array_to_nested
 import pickle
 
 
-# In[ ]:
+# In[2]:
 
 
 def Run_SK_Teacher(config):
@@ -46,29 +50,30 @@ def Run_SK_Teacher(config):
     X_test = from_2d_array_to_nested(testing.x.squeeze().cpu().detach().numpy())
     y_test = testing.y.squeeze().cpu().detach().numpy()
 
-    if config.teacher_sk_type == 'DrCIF':
-        classifier = DrCIF(random_state=config.init_seed)
-    elif config.teacher_sk_type == 'Forest':
+    if config.teacher_type == 'CIF':
+        classifier = CanonicalIntervalForest(random_state=config.init_seed)
+    elif config.teacher_type == 'Forest':
         classifier = TimeSeriesForestClassifier(random_state=config.init_seed)
-    elif config.teacher_sk_type == 'Proximity':
-        classifier = ProximityForest(random_state=config.init_seed)
+    elif config.teacher_type == 'Proximity':
+        classifier = ProximityTree(random_state=config.init_seed)
+    elif config.teacher_type == 'TDE':
+        classifier = IndividualTDE(random_state=config.init_seed)
+    elif config.teacher_type == 'Rocket':
+        classifier = RocketClassifier(random_state=config.init_seed)
+    elif config.teacher_type == 'Matrix':
+        classifier = MatrixProfileClassifier(random_state=config.init_seed)
+    print("GO")
     
     classifier.fit(X_train, y_train)
     
-    model_name = f'{config.teacher_sk_type}_{config.experiment}_{config.init_seed}_teacher.pkl'
+    model_name = f'{config.teacher_type}_{config.experiment}_{config.init_seed}_teacher.pkl'
     savepath = "./teachers/" + model_name
     
     with open(savepath,'wb') as file:
         pickle.dump(classifier,file)
-        
-#     with open(savepath,'rb') as file:
-#         pickle_saved = pickle.load(file)
-        
-#     y_pred = pickle_saved.predict_proba(X_test)
-#     print(y_pred)
 
 
-# In[ ]:
+# In[3]:
 
 
 def Run_NN_Teacher(model, config):
@@ -93,7 +98,7 @@ def Run_NN_Teacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[ ]:
+# In[4]:
 
 
 def RunStudent(model, config, teachers):
@@ -127,7 +132,7 @@ def RunStudent(model, config, teachers):
 
     # Teachers
     teacher_list = []
-    if config.teacher_sk_type == 'Inception':
+    if config.teacher_type == 'Inception':
         for teacher in teachers:
             savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
             teacher_config = copy.deepcopy(config)
@@ -143,7 +148,7 @@ def RunStudent(model, config, teachers):
             module_list.append(model_t)
     else:
         for teacher in teachers:
-            savepath = Path('./teachers/'+ config.teacher_sk_type + '_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
+            savepath = Path('./teachers/'+ config.teacher_type + '_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
             with open(savepath,'rb') as file:
                 pickle_saved = pickle.load(file)
             teacher_list.append(pickle_saved)
@@ -178,7 +183,7 @@ def RunStudent(model, config, teachers):
     for epoch in range(1, config.epochs + 1):
         if config.distiller == 'cawpe':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
-        elif config.teacher_sk_type == 'Inception':
+        elif config.teacher_type == 'Inception':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         else:
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, t_list = teacher_list)
@@ -196,7 +201,7 @@ def RunStudent(model, config, teachers):
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[ ]:
+# In[5]:
 
 
 def remove_elements(x):
@@ -262,7 +267,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[ ]:
+# In[6]:
 
 
 class StudentBO():
@@ -314,7 +319,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[ ]:
+# In[7]:
 
 
 class MetricAccuracy(Metric):
@@ -347,7 +352,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[ ]:
+# In[8]:
 
 
 def BayesianOptimization(config):
@@ -429,7 +434,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[ ]:
+# In[9]:
 
 
 if __name__ == '__main__':    
@@ -459,9 +464,10 @@ if __name__ == '__main__':
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-    parser.add_argument('--evaluation', type=str, default='student', 
-                        choices=['teacher','teacher_sk', 'student', 'teacher_ensemble', 'student_bo'])
-    parser.add_argument('--teacher_sk_type', type=str, default='Inception')
+    parser.add_argument('--evaluation', type=str, default='teacher', 
+                        choices=['teacher', 'student', 'teacher_ensemble', 'student_bo'])
+    parser.add_argument('--teacher_type', type=str, default='Matrix',
+                        choices=['Inception', 'CIF', 'Forest', 'Proximity','TDE','Rocket','Matrix'])
     parser.add_argument('--bo_init', type=int, default=50)
     parser.add_argument('--bo_steps', type=int, default=50)
     
@@ -527,7 +533,7 @@ if __name__ == '__main__':
     else:
         config.data_folder = Path('/data/cs.aau.dk/dgcc/TimeSeriesClassification')
         
-    if config.evaluation == 'teacher':
+    if config.evaluation == 'teacher' and config.teacher_type == 'Inception':
         teacher_config = config
         teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
         teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
@@ -543,7 +549,7 @@ if __name__ == '__main__':
             torch.cuda.manual_seed(teacher)
             torch.backends.cudnn.deterministic = True
             Run_NN_Teacher(model_t, config)
-    elif config.evaluation == 'teacher_sk':
+    elif config.evaluation == 'teacher' and config.teacher_type != 'Inception':
         for teacher in range(0,config.teachers):
             config.init_seed = teacher
             np.random.seed(teacher)

@@ -461,7 +461,7 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
     parser.add_argument('--evaluation', type=str, default='student', 
                         choices=['teacher','teacher_sk', 'student', 'teacher_ensemble', 'student_bo'])
-    parser.add_argument('--teacher_sk_type', type=str, default='DrCIF')
+    parser.add_argument('--teacher_sk_type', type=str, default='Inception')
     parser.add_argument('--bo_init', type=int, default=50)
     parser.add_argument('--bo_steps', type=int, default=50)
     

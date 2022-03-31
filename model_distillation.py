@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -34,7 +34,7 @@ from sktime.datatypes._panel._convert import from_2d_array_to_nested
 import pickle
 
 
-# In[2]:
+# In[ ]:
 
 
 def Run_SK_Teacher(config):
@@ -68,7 +68,7 @@ def Run_SK_Teacher(config):
 #     print(y_pred)
 
 
-# In[3]:
+# In[ ]:
 
 
 def Run_NN_Teacher(model, config):
@@ -93,7 +93,7 @@ def Run_NN_Teacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[4]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
@@ -196,7 +196,7 @@ def RunStudent(model, config, teachers):
     return accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[5]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -262,7 +262,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[6]:
+# In[ ]:
 
 
 class StudentBO():
@@ -314,7 +314,7 @@ def initialize_experiment(experiment,N_INIT):
     return experiment.fetch_data()
 
 
-# In[7]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -347,7 +347,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[8]:
+# In[ ]:
 
 
 def BayesianOptimization(config):
@@ -476,9 +476,9 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
-    parser.add_argument('--leaving_weights', type=str2bool, default=True)
+    parser.add_argument('--leaving_weights', type=str2bool, default=False)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
     parser.add_argument('--explore_branches', type=int, default=1)
     parser.add_argument('--val_epochs', type=int, default=1)

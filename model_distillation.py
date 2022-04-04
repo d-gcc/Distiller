@@ -179,7 +179,7 @@ def RunStudent(model, config, teachers):
         teacher_probs = train_probabilities(config)
         config.evaluation = 'student'
     
-    max_accuracy = 0
+    max_accuracy = accuracy = 0
     
     for epoch in range(1, config.epochs + 1):
         if config.distiller == 'cawpe':
@@ -462,7 +462,7 @@ if __name__ == '__main__':
     parser.add_argument('--pid', type=int, default=0)
     parser.add_argument('--evaluation', type=str, default='teacher', 
                         choices=['teacher', 'student', 'teacher_ensemble', 'student_bo'])
-    parser.add_argument('--teacher_type', type=str, default='Matrix',
+    parser.add_argument('--teacher_type', type=str, default='Inception',
                         choices=['Inception', 'CIF', 'Forest', 'Proximity','TDE','Rocket','Matrix'])
     parser.add_argument('--bo_init', type=int, default=10)
     parser.add_argument('--bo_steps', type=int, default=10)

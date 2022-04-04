@@ -288,7 +288,7 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
             type_q = "Full precision: " + str(config.bits)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
                        accuracy, "Seed", config.init_seed, "Epochs", epochs, "Training Time", training_time, "Testing Time", testing_time) 
-        elif config.evaluation == 'student':
+        elif config.evaluation == 'student' or config.evaluation == 'student_bo':
             type_q = str(config.layer1) + "(" + str(config.bit1) + ")-" + str(config.layer2) + "(" + str(config.bit2) + ")-" + str(config.layer2) + "(" + str(config.bit3) + ")"
             if config.learned_kl_w:
                 teacher_w = "/".join(str(t) +":" + str(round(w, 3)) for w, t in zip(config.teacher_weights, config.teacher_setting))

@@ -62,7 +62,6 @@ def Run_SK_Teacher(config):
         classifier = RocketClassifier(random_state=config.init_seed)
     elif config.teacher_type == 'Matrix':
         classifier = MatrixProfileClassifier(random_state=config.init_seed)
-    print("GO")
     
     classifier.fit(X_train, y_train)
     
@@ -180,6 +179,8 @@ def RunStudent(model, config, teachers):
         teacher_probs = train_probabilities(config)
         config.evaluation = 'student'
     
+    max_accuracy = 0
+    
     for epoch in range(1, config.epochs + 1):
         if config.distiller == 'cawpe':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
@@ -198,7 +199,10 @@ def RunStudent(model, config, teachers):
             teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_list)
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
 
-    return accuracy, dict(zip(teachers, teacher_weights))
+        if accuracy > max_accuracy:
+            max_accuracy = accuracy
+            
+    return max_accuracy, dict(zip(teachers, teacher_weights))
 
 
 # In[5]:
@@ -363,12 +367,12 @@ def BayesianOptimization(config):
     model_s = model_s.to(config.device)
     student_bo = StudentBO(model_s, config)
     
-    bit_1=ChoiceParameter(name="bit_1", values=[2,3,4,5,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    bit_2=ChoiceParameter(name="bit_2", values=[2,3,4,5,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    bit_3=ChoiceParameter(name="bit_3", values=[2,3,4,5,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_1=ChoiceParameter(name="layers_1", values=[3,4,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_2=ChoiceParameter(name="layers_2", values=[3,4,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_3=ChoiceParameter(name="layers_3", values=[3,4,8,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_1=ChoiceParameter(name="bit_1", values=[2,3,4,5,6,7,8], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_2=ChoiceParameter(name="bit_2", values=[2,3,4,5,6,7,8], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_3=ChoiceParameter(name="bit_3", values=[2,3,4,5,6,7,8], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_1=ChoiceParameter(name="layers_1", values=[3,4,5,6,7], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_2=ChoiceParameter(name="layers_2", values=[3,4,5,6,7], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_3=ChoiceParameter(name="layers_3", values=[3,4,5,6,7], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
 
     search_space = SearchSpace(parameters=[bit_1, bit_2, bit_3, layers_1, layers_2, layers_3])
     
@@ -389,9 +393,6 @@ def BayesianOptimization(config):
         objective_thresholds=objective_thresholds,
     )
     
-    initialization_steps = 5
-    optimization_steps = 2
-    
     bo_experiment = build_experiment(search_space,optimization_config)
     bo_data = initialize_experiment(bo_experiment,config.bo_init)
     
@@ -399,15 +400,10 @@ def BayesianOptimization(config):
     for i in range(config.bo_steps):
         
         bo_model = Models.MOO_MODULAR(
-            experiment=bo_experiment,
-            data=bo_data,
+            experiment=bo_experiment, data=bo_data,
             surrogate=ListSurrogate(
-            botorch_submodel_class_per_outcome={
-                "accuracy": SingleTaskGP, 
-                "cost": SingleTaskGP,
-            },
-            submodel_options_per_outcome={"accuracy": {}, "cost": {}},
-        ))
+            botorch_submodel_class_per_outcome={"accuracy": SingleTaskGP, "cost": SingleTaskGP,},
+            submodel_options_per_outcome={"accuracy": {}, "cost": {}},))
         
         generator_run = bo_model.gen(1)
         params = generator_run.arms[0].parameters
@@ -468,8 +464,8 @@ if __name__ == '__main__':
                         choices=['teacher', 'student', 'teacher_ensemble', 'student_bo'])
     parser.add_argument('--teacher_type', type=str, default='Matrix',
                         choices=['Inception', 'CIF', 'Forest', 'Proximity','TDE','Rocket','Matrix'])
-    parser.add_argument('--bo_init', type=int, default=50)
-    parser.add_argument('--bo_steps', type=int, default=50)
+    parser.add_argument('--bo_init', type=int, default=10)
+    parser.add_argument('--bo_steps', type=int, default=10)
     
     # Distillation
     parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd','cawpe'])

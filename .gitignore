@@ -4,6 +4,7 @@ legacy_code/
 teachers/
 *.xlsx
 MSSQL.txt
+experiment_desc.py
 *.ipynb
 **/__pycache__/
 *.db

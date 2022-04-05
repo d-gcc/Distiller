@@ -28,13 +28,6 @@ from ax.plot.pareto_utils import compute_posterior_pareto_frontier
 from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
 
-from sktime.classification.interval_based import TimeSeriesForestClassifier, CanonicalIntervalForest
-from sktime.classification.distance_based import ProximityTree
-from sktime.classification.dictionary_based import IndividualBOSS, IndividualTDE
-from sktime.classification.feature_based import MatrixProfileClassifier
-#from sktime.classification.kernel_based import RocketClassifier
-
-from sktime.datatypes._panel._convert import from_2d_array_to_nested
 import pickle
 
 
@@ -42,6 +35,7 @@ import pickle
 
 
 def Run_SK_Teacher(config):
+    from sktime.datatypes._panel._convert import from_2d_array_to_nested
     training, validation, testing = get_raw_data(config)
     
     X_train = from_2d_array_to_nested(training.x.squeeze().cpu().detach().numpy())
@@ -51,16 +45,22 @@ def Run_SK_Teacher(config):
     y_test = testing.y.squeeze().cpu().detach().numpy()
 
     if config.teacher_type == 'CIF':
+        from sktime.classification.interval_based import CanonicalIntervalForest
         classifier = CanonicalIntervalForest(random_state=config.init_seed)
     elif config.teacher_type == 'Forest':
+        from sktime.classification.interval_based import TimeSeriesForestClassifier
         classifier = TimeSeriesForestClassifier(random_state=config.init_seed)
     elif config.teacher_type == 'Proximity':
+        from sktime.classification.distance_based import ProximityTree
         classifier = ProximityTree(random_state=config.init_seed)
     elif config.teacher_type == 'TDE':
+        from sktime.classification.dictionary_based import IndividualTDE
         classifier = IndividualTDE(random_state=config.init_seed)
     elif config.teacher_type == 'Rocket':
+        from sktime.classification.kernel_based import RocketClassifier
         classifier = RocketClassifier(random_state=config.init_seed)
     elif config.teacher_type == 'Matrix':
+        from sktime.classification.feature_based import MatrixProfileClassifier
         classifier = MatrixProfileClassifier(random_state=config.init_seed)
     
     classifier.fit(X_train, y_train)
@@ -460,10 +460,10 @@ if __name__ == '__main__':
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-    parser.add_argument('--evaluation', type=str, default='teacher', 
+    parser.add_argument('--evaluation', type=str, default='student', 
                         choices=['teacher', 'student', 'teacher_ensemble', 'student_bo'])
     parser.add_argument('--teacher_type', type=str, default='Inception',
-                        choices=['Inception', 'CIF', 'Forest', 'Proximity','TDE','Rocket','Matrix'])
+                        choices=['Inception', 'CIF', 'Forest', 'Proximity', 'TDE', 'Rocket', 'Matrix'])
     parser.add_argument('--bo_init', type=int, default=10)
     parser.add_argument('--bo_steps', type=int, default=10)
     

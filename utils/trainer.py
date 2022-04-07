@@ -60,6 +60,7 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
     for idx, data in enumerate(train_loader):
         batch_loss = 0
         teachers_loss = torch.zeros(config.teachers, dtype=torch.float32, device = config.device)
+        reward = torch.zeros(config.teachers, dtype=torch.float32, device = config.device)
         
         input, target = data
         index = len(input)
@@ -160,6 +161,27 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             losses_div_tensor.to(config.device)
             ensemble_loss = torch.sum(torch.mul(scale, losses_div_tensor)) #torch.dot(scale, losses_div_tensor)
             
+        elif config.distiller == 'kd_rl':
+            for teacher in range(0,config.teachers):
+                
+                if teacher_probs[teacher] >= 1/config.teachers:
+                    model_t = module_list[teacher+1]
+                    with torch.no_grad():
+                        feat_t, logit_t = model_t(input)
+
+                    if len(target.shape) == 1:
+                        loss_ce = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
+                    else:
+                        loss_ce = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')    
+
+                    loss_div = criterion_div(logit_s, logit_t)
+                    teachers_loss[teacher] += loss_div
+                    reward[teacher] += loss_div + loss_ce
+
+                    batch_loss += loss_div
+
+            ensemble_loss = torch.sum(teachers_loss)
+            
         loss_kd = 0
               
         if len(target.shape) == 1:
@@ -178,6 +200,9 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        
+    if config.distiller == 'kd_rl':
+        return reward
 
 
 def validation(epoch, val_loader, module_list, criterion_list, optimizer, config, t_list = 0):

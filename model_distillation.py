@@ -128,6 +128,8 @@ def RunStudent(model, config, teachers):
         criterion_list.append(DistillKL(config.kd_temperature))
     elif config.distiller == 'cawpe':
         criterion_list.append(DistillKL(config.kd_temperature))
+    elif config.distiller == 'kd_rl':
+        criterion_list.append(DistillKL(config.kd_temperature))
 
     # Teachers
     teacher_list = []
@@ -178,6 +180,10 @@ def RunStudent(model, config, teachers):
         config.evaluation = 'cross_validation'
         teacher_probs = train_probabilities(config)
         config.evaluation = 'student'
+    elif config.distiller == 'kd_rl':
+        teacher_probs = torch.full((1,config.teachers), 1/config.teachers, dtype=torch.float32, 
+                                     device = config.device).squeeze()
+                        #torch.rand(config.teachers, device = config.device)
     
     max_accuracy = accuracy = 0
     
@@ -185,7 +191,12 @@ def RunStudent(model, config, teachers):
         if config.distiller == 'cawpe':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
         elif config.teacher_type == 'Inception':
-            train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
+            if config.distiller == 'kd_rl':
+                reward = train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
+                teacher_probs -= reward * config.lr
+                teacher_probs = torch.softmax(teacher_probs, dim=-1)
+            else:
+                train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         else:
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, t_list = teacher_list)
         
@@ -455,7 +466,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr_w', type=float, default=0.01)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=5e-4)
-    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--patience', type=int, default=1500)
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
@@ -468,7 +479,7 @@ if __name__ == '__main__':
     parser.add_argument('--bo_steps', type=int, default=10)
     
     # Distillation
-    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd','cawpe'])
+    parser.add_argument('--distiller', type=str, default='kd', choices=['kd', 'kd_baseline','ae-kd','cawpe','kd_rl'])
     parser.add_argument('--kd_temperature', type=float, default=5)
     parser.add_argument('--teachers', type=int, default=10)
 

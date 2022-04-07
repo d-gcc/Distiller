@@ -313,7 +313,7 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
             type_q = "Full precision: " + str(config.bits)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,
                        accuracy, "Seed", config.init_seed, "Epochs", epochs, "Training Time", training_time, "Testing Time", testing_time) 
-        elif config.evaluation == 'student' or config.evaluation == 'student_bo':
+        elif config.evaluation == 'student' or config.evaluation == 'student_bo' or config.evaluation == 'student_bo_simple':
             type_q = str(config.layer1) + "(" + str(config.bit1) + ")-" + str(config.layer2) + "(" + str(config.bit2) + ")-" + str(config.layer2) + "(" + str(config.bit3) + ")"
             if config.learned_kl_w:
                 teacher_w = "/".join(str(t) +":" + str(round(w, 3)) for w, t in zip(config.teacher_weights, config.teacher_setting))
@@ -325,13 +325,18 @@ def evaluate(test_loader, model, config, epochs=0, training_time=0):
             except:
                 pass
 
-            insert_SQL(config.teacher_type, config.pid, config.experiment, "Teacher Weights", teacher_w, type_q, config.teachers,
+            if config.evaluation == 'student_bo_simple':
+                parameter_desc = config.bo_status
+            else:
+                parameter_desc = "Teacher Weights"
+            
+            insert_SQL(config.teacher_type, config.pid, config.experiment, parameter_desc, teacher_w, type_q, config.teachers,
                        config.distiller, accuracy, "Top 5", accuracy_5, "Epochs", epochs, "Training Time", 
                        training_time,"Testing Time", testing_time)
 
         elif config.evaluation == 'cross_validation':
             return accuracy
-            
+        
         else:
             type_q = "Mixed: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
             insert_SQL("Inception", config.pid, config.experiment, "Parameter", 0, type_q, config.bits, config.distiller,

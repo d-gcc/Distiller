@@ -323,10 +323,10 @@ def build_experiment(search_space,optimization_config):
     )
     return experiment
 
-def initialize_experiment(experiment,N_INIT):
+def initialize_experiment(experiment,initialization):
     sobol = Models.SOBOL(search_space=experiment.search_space, seed=1234)
 
-    for _ in range(N_INIT):
+    for _ in range(initialization):
         trial = experiment.new_trial(sobol.gen(1))
         trial.run()
         trial.mark_completed()
@@ -391,41 +391,60 @@ def BayesianOptimization(config):
 
     #metric_accuracy2 = MetricAccuracy(name="accuracy2",lower_is_better=False)
     metric_cost = MetricCost(name="cost",lower_is_better=True)
-
-    objectives = MultiObjective(objectives=[Objective(metric=metric_accuracy), Objective(metric=metric_cost)])
-
-    objective_thresholds = [
-        ObjectiveThreshold(metric=metric_accuracy, bound=0.7, relative=False),
-        ObjectiveThreshold(metric=metric_cost, bound=2000, relative=False),
-    ]
-
-    optimization_config = MultiObjectiveOptimizationConfig(
-        objective=objectives,
-        objective_thresholds=objective_thresholds,
-    )
     
-    bo_experiment = build_experiment(search_space,optimization_config)
-    bo_data = initialize_experiment(bo_experiment,config.bo_init)
-    
-    bo_model = None
-    for i in range(config.bo_steps):
+    if config.evaluation == 'student_bo':
+        objectives = MultiObjective(objectives=[Objective(metric=metric_accuracy), Objective(metric=metric_cost)])
+        objective_thresholds = [
+            ObjectiveThreshold(metric=metric_accuracy, bound=0.7, relative=False),
+            ObjectiveThreshold(metric=metric_cost, bound=2000, relative=False),
+        ]
+
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objective=objectives,
+            objective_thresholds=objective_thresholds,
+        )
+
+        bo_experiment = build_experiment(search_space,optimization_config)
+        bo_data = initialize_experiment(bo_experiment,config.bo_init)
+
+        bo_model = None
+        for i in range(config.bo_steps):
+            bo_model = Models.MOO_MODULAR(
+                experiment=bo_experiment, data=bo_data,
+                surrogate=ListSurrogate(
+                botorch_submodel_class_per_outcome={"accuracy": SingleTaskGP, "cost": SingleTaskGP,},
+                submodel_options_per_outcome={"accuracy": {}, "cost": {}},))
+
+            generator_run = bo_model.gen(1)
+            params = generator_run.arms[0].parameters
+
+            trial = bo_experiment.new_trial(generator_run=generator_run)
+            trial.run()
+            trial.mark_completed()
+            bo_data = Data.from_multiple_data([bo_data, trial.fetch_data()])
+            
+            exp_df = exp_to_df(bo_experiment)
+
+    elif config.evaluation == 'student_bo_simple':
+        bo_experiment = SimpleExperiment(search_space=search_space,evaluation_function=student_bo)
+        bo_experiment.runner = SyntheticRunner()
+        config.bo_status = 'Random'
+        bo_data = initialize_experiment(bo_experiment,config.bo_init)
+        config.bo_status = 'Optimized'
+        bo_model = None
+        for i in range(config.bo_steps):
+            bo_model = Models.BOTORCH(experiment=bo_experiment, data=bo_data)
+
+            generator_run = bo_model.gen(1)
+            params = generator_run.arms[0].parameters
+
+            trial = bo_experiment.new_trial(generator_run=generator_run)
+            trial.run()
+            trial.mark_completed()
+            bo_data = Data.from_multiple_data([bo_data, trial.fetch_data()])
+
+            exp_df = exp_to_df(bo_experiment)
         
-        bo_model = Models.MOO_MODULAR(
-            experiment=bo_experiment, data=bo_data,
-            surrogate=ListSurrogate(
-            botorch_submodel_class_per_outcome={"accuracy": SingleTaskGP, "cost": SingleTaskGP,},
-            submodel_options_per_outcome={"accuracy": {}, "cost": {}},))
-        
-        generator_run = bo_model.gen(1)
-        params = generator_run.arms[0].parameters
-
-        trial = bo_experiment.new_trial(generator_run=generator_run)
-        trial.run()
-        trial.mark_completed()
-        bo_data = Data.from_multiple_data([bo_data, trial.fetch_data()])
-
-        exp_df = exp_to_df(bo_experiment)
-
 
     outcomes = np.array(exp_to_df(bo_experiment)[['accuracy', 'cost']], dtype=np.double)
     
@@ -441,7 +460,7 @@ def BayesianOptimization(config):
     plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
-# In[9]:
+# In[ ]:
 
 
 if __name__ == '__main__':    
@@ -466,13 +485,13 @@ if __name__ == '__main__':
     parser.add_argument('--lr_w', type=float, default=0.01)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=5e-4)
-    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--patience', type=int, default=1500)
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-    parser.add_argument('--evaluation', type=str, default='student', 
-                        choices=['teacher', 'student', 'teacher_ensemble', 'student_bo'])
+    parser.add_argument('--evaluation', type=str, default='student_bo_simple', 
+                        choices=['teacher', 'student', 'teacher_ensemble', 'student_bo', 'student_bo_simple'])
     parser.add_argument('--teacher_type', type=str, default='Inception',
                         choices=['Inception', 'CIF', 'Forest', 'Proximity', 'TDE', 'Rocket', 'Matrix'])
     parser.add_argument('--bo_init', type=int, default=10)
@@ -566,7 +585,7 @@ if __name__ == '__main__':
             Run_SK_Teacher(config)
     elif config.evaluation == 'teacher_ensemble':
         TeacherEvaluation(config)
-    elif config.evaluation == 'student_bo':
+    elif config.evaluation == 'student_bo' or config.evaluation == 'student_bo_simple':
         BayesianOptimization(config)
     elif config.evaluation == 'student':
         config.layer1 = config.layer2 = config.layer3 = 3

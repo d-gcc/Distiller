@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -31,7 +31,7 @@ from plotly.offline import plot
 import pickle
 
 
-# In[2]:
+# In[ ]:
 
 
 def Run_SK_Teacher(config):
@@ -72,7 +72,7 @@ def Run_SK_Teacher(config):
         pickle.dump(classifier,file)
 
 
-# In[3]:
+# In[ ]:
 
 
 def Run_NN_Teacher(model, config):
@@ -97,7 +97,7 @@ def Run_NN_Teacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[4]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
@@ -216,7 +216,7 @@ def RunStudent(model, config, teachers):
     return max_accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[5]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -282,7 +282,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[6]:
+# In[ ]:
 
 
 class StudentBO():
@@ -334,7 +334,7 @@ def initialize_experiment(experiment,initialization):
     return experiment.fetch_data()
 
 
-# In[7]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -367,7 +367,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[8]:
+# In[ ]:
 
 
 def BayesianOptimization(config):
@@ -425,6 +425,19 @@ def BayesianOptimization(config):
             
             exp_df = exp_to_df(bo_experiment)
 
+            outcomes = np.array(exp_to_df(bo_experiment)[['accuracy', 'cost']], dtype=np.double)
+
+            frontier = compute_posterior_pareto_frontier(
+                experiment=bo_experiment,
+                data=bo_experiment.fetch_data(),
+                primary_objective=metric_accuracy,
+                secondary_objective=metric_cost,
+                absolute_metrics=["accuracy", "cost"],
+                num_points=config.bo_init + config.bo_steps,
+            )
+
+            plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
+    
     elif config.evaluation == 'student_bo_simple':
         bo_experiment = SimpleExperiment(search_space=search_space,evaluation_function=student_bo)
         bo_experiment.runner = SyntheticRunner()
@@ -444,20 +457,6 @@ def BayesianOptimization(config):
             bo_data = Data.from_multiple_data([bo_data, trial.fetch_data()])
 
             exp_df = exp_to_df(bo_experiment)
-        
-
-    outcomes = np.array(exp_to_df(bo_experiment)[['accuracy', 'cost']], dtype=np.double)
-    
-    frontier = compute_posterior_pareto_frontier(
-        experiment=bo_experiment,
-        data=bo_experiment.fetch_data(),
-        primary_objective=metric_accuracy,
-        secondary_objective=metric_cost,
-        absolute_metrics=["accuracy", "cost"],
-        num_points=config.bo_init + config.bo_steps,
-    )
-
-    plot(plot_pareto_frontier(frontier, CI_level=0.90).data, filename=config.experiment+'_'+str(config.pid)+'_.html')
 
 
 # In[ ]:

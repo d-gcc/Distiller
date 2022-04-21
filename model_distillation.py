@@ -191,7 +191,7 @@ def RunStudent(model, config, teachers):
         if config.distiller == 'cawpe':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
         if config.distiller == 'kd_rl':
-            reward = train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
+            reward = train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs, t_list = teacher_list)
             teacher_probs -= reward * config.lr
             teacher_probs = torch.softmax(teacher_probs, dim=-1)
         else:

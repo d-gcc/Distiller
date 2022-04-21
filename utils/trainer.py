@@ -99,23 +99,36 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         elif config.distiller == 'kd_baseline':
             logit_list = []
             for teacher in range(0,config.teachers):
-                model_t = module_list[teacher+1]
+                if config.teacher_type == 'Inception':
+                    model_t = module_list[teacher+1]
 
-                with torch.no_grad():
-                    feat_t, logit_t = model_t(input)
+                    with torch.no_grad():
+                        feat_t, logit_t = model_t(input)
+                        logit_list.append(logit_t)
+                else:
+                    X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                    logit_t_np = t_list[teacher].predict_proba(X_test)
+                    logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
                     logit_list.append(logit_t)
 
             loss_div = criterion_div(logit_s, logit_list)
             batch_loss += loss_div
             ensemble_loss = batch_loss
+            
 
         elif config.distiller == 'ae-kd':
             logit_t_list = []
             
             for teacher in range(0,config.teachers):
-                model_t = module_list[teacher+1]
-                with torch.no_grad():
-                    feat_t, logit_t = model_t(input)
+                if config.teacher_type == 'Inception':
+                    model_t = module_list[teacher+1]
+                    with torch.no_grad():
+                        feat_t, logit_t = model_t(input)
+                        logit_t_list.append(logit_t)
+                else:
+                    X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                    logit_t_np = t_list[teacher].predict_proba(X_test)
+                    logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
                     logit_t_list.append(logit_t)
                 
             loss_div_list = []
@@ -139,11 +152,17 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             logit_t_list = []
             
             for teacher in range(0,config.teachers):
-                model_t = module_list[teacher+1]
-                with torch.no_grad():
-                    feat_t, logit_t = model_t(input)
+                if config.teacher_type == 'Inception':
+                    model_t = module_list[teacher+1]
+                    with torch.no_grad():
+                        feat_t, logit_t = model_t(input)
+                        logit_t_list.append(logit_t)
+                else:
+                    X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                    logit_t_np = t_list[teacher].predict_proba(X_test)
+                    logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
                     logit_t_list.append(logit_t)
-                
+                        
             loss_div_list = []
             grads = []
             logit_s.register_hook(lambda grad: grads.append(
@@ -165,10 +184,15 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             for teacher in range(0,config.teachers):
                 
                 if teacher_probs[teacher] >= 1/config.teachers:
-                    model_t = module_list[teacher+1]
-                    with torch.no_grad():
-                        feat_t, logit_t = model_t(input)
-
+                    if config.teacher_type == 'Inception':
+                        model_t = module_list[teacher+1]
+                        with torch.no_grad():
+                            feat_t, logit_t = model_t(input)
+                    else:
+                        X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                        logit_t_np = t_list[teacher].predict_proba(X_test)
+                        logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                            
                     if len(target.shape) == 1:
                         loss_ce = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
                     else:

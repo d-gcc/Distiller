@@ -190,13 +190,10 @@ def RunStudent(model, config, teachers):
     for epoch in range(1, config.epochs + 1):
         if config.distiller == 'cawpe':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
-        elif config.teacher_type == 'Inception':
-            if config.distiller == 'kd_rl':
-                reward = train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
-                teacher_probs -= reward * config.lr
-                teacher_probs = torch.softmax(teacher_probs, dim=-1)
-            else:
-                train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
+        if config.distiller == 'kd_rl':
+            reward = train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
+            teacher_probs -= reward * config.lr
+            teacher_probs = torch.softmax(teacher_probs, dim=-1)
         else:
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, t_list = teacher_list)
         
@@ -507,9 +504,9 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
-    parser.add_argument('--leaving_weights', type=str2bool, default=False)
+    parser.add_argument('--leaving_weights', type=str2bool, default=True)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
     parser.add_argument('--explore_branches', type=int, default=1)
     parser.add_argument('--val_epochs', type=int, default=1)

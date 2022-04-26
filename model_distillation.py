@@ -375,12 +375,12 @@ def BayesianOptimization(config):
     model_s = model_s.to(config.device)
     student_bo = StudentBO(model_s, config)
     
-    bit_1=ChoiceParameter(name="bit_1", values=[2,3,4,5,6,7,8], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    bit_2=ChoiceParameter(name="bit_2", values=[2,3,4,5,6,7,8], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    bit_3=ChoiceParameter(name="bit_3", values=[2,3,4,5,6,7,8], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_1=ChoiceParameter(name="layers_1", values=[3,4,5,6,7], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_2=ChoiceParameter(name="layers_2", values=[3,4,5,6,7], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_3=ChoiceParameter(name="layers_3", values=[3,4,5,6,7], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_1=ChoiceParameter(name="bit_1", values=[2,3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_2=ChoiceParameter(name="bit_2", values=[2,3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_3=ChoiceParameter(name="bit_3", values=[2,3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_1=ChoiceParameter(name="layers_1", values=[2,3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_2=ChoiceParameter(name="layers_2", values=[2,3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_3=ChoiceParameter(name="layers_3", values=[2,3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
 
     search_space = SearchSpace(parameters=[bit_1, bit_2, bit_3, layers_1, layers_2, layers_3])
     
@@ -393,7 +393,7 @@ def BayesianOptimization(config):
         objectives = MultiObjective(objectives=[Objective(metric=metric_accuracy), Objective(metric=metric_cost)])
         objective_thresholds = [
             ObjectiveThreshold(metric=metric_accuracy, bound=0.7, relative=False),
-            ObjectiveThreshold(metric=metric_cost, bound=2000, relative=False),
+            ObjectiveThreshold(metric=metric_cost, bound=45, relative=False),
         ]
 
         optimization_config = MultiObjectiveOptimizationConfig(

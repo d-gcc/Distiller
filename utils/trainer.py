@@ -444,8 +444,11 @@ def evaluate_ensemble(test_loader, config):
 
     accuracy = accuracy_score(*_to_1d_binary(true_np, sum_np), normalize=True)
     true_1d,_ = _to_1d_binary(true_np, sum_np)
-    accuracy_5 = top_k_accuracy_score(true_1d, sum_np, normalize=True, k=5)
-
+    try:
+        accuracy_5 = top_k_accuracy_score(true_1d, sum_np, normalize=True, k=5)
+    except Exception as e: # Undefinition for few classes
+        accuracy_5 = -1
+        
     type_q = "Full precision: " + str(config.bits)
     insert_SQL(config.teacher_type, config.pid, config.experiment, "Teacher Ensemble", 0, type_q, config.bits, config.distiller,
                accuracy, "Top 5", accuracy_5, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 

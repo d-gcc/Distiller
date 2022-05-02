@@ -504,9 +504,9 @@ if __name__ == '__main__':
     
     # Leaving-out, learned weights
     parser.add_argument('--leaving_out', type=str2bool, default=False)
-    parser.add_argument('--learned_kl_w', type=str2bool, default=True)
+    parser.add_argument('--learned_kl_w', type=str2bool, default=False)
     parser.add_argument('--random_init_w', type=str2bool, default=False)
-    parser.add_argument('--leaving_weights', type=str2bool, default=True)
+    parser.add_argument('--leaving_weights', type=str2bool, default=False)
     parser.add_argument('--avoid_mult', type=str2bool, default=False)
     parser.add_argument('--explore_branches', type=int, default=1)
     parser.add_argument('--val_epochs', type=int, default=1)

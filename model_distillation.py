@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -31,7 +31,7 @@ from plotly.offline import plot
 import pickle
 
 
-# In[ ]:
+# In[2]:
 
 
 def Run_SK_Teacher(config):
@@ -72,7 +72,7 @@ def Run_SK_Teacher(config):
         pickle.dump(classifier,file)
 
 
-# In[ ]:
+# In[3]:
 
 
 def Run_NN_Teacher(model, config):
@@ -97,7 +97,7 @@ def Run_NN_Teacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[ ]:
+# In[4]:
 
 
 def RunStudent(model, config, teachers):
@@ -190,7 +190,7 @@ def RunStudent(model, config, teachers):
     for epoch in range(1, config.epochs + 1):
         if config.distiller == 'cawpe':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
-        if config.distiller == 'kd_rl':
+        elif config.distiller == 'kd_rl':
             reward = train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs, t_list = teacher_list)
             teacher_probs -= reward * config.lr
             teacher_probs = torch.softmax(teacher_probs, dim=-1)
@@ -213,7 +213,7 @@ def RunStudent(model, config, teachers):
     return max_accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[ ]:
+# In[5]:
 
 
 def remove_elements(x):
@@ -279,7 +279,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[ ]:
+# In[6]:
 
 
 class StudentBO():
@@ -331,7 +331,7 @@ def initialize_experiment(experiment,initialization):
     return experiment.fetch_data()
 
 
-# In[ ]:
+# In[7]:
 
 
 class MetricAccuracy(Metric):
@@ -364,7 +364,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[ ]:
+# In[8]:
 
 
 def BayesianOptimization(config):
@@ -456,7 +456,7 @@ def BayesianOptimization(config):
             exp_df = exp_to_df(bo_experiment)
 
 
-# In[ ]:
+# In[9]:
 
 
 if __name__ == '__main__':    
@@ -486,7 +486,7 @@ if __name__ == '__main__':
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-    parser.add_argument('--evaluation', type=str, default='student_bo_simple', 
+    parser.add_argument('--evaluation', type=str, default='student', 
                         choices=['teacher', 'student', 'teacher_ensemble', 'student_bo', 'student_bo_simple'])
     parser.add_argument('--teacher_type', type=str, default='Inception',
                         choices=['Inception', 'CIF', 'Forest', 'Proximity', 'TDE', 'Rocket', 'Matrix'])

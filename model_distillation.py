@@ -27,6 +27,7 @@ from ax.utils.notebook.plotting import render, init_notebook_plotting
 from ax.plot.pareto_utils import compute_posterior_pareto_frontier
 from ax.plot.pareto_frontier import plot_pareto_frontier
 from plotly.offline import plot
+from sktime.datatypes._panel._convert import from_2d_array_to_nested
 
 import pickle
 
@@ -131,8 +132,13 @@ def RunStudent(model, config, teachers):
     elif config.distiller == 'kd_rl':
         criterion_list.append(DistillKL(config.kd_temperature))
 
+    if config.teacher_type == 'Inception':
+        train_loader, val_loader, test_loader = get_loaders(config)
+    else:
+        config.batch_size = 10000
+        train_loader, val_loader, test_loader = get_loaders(config)
+        
     # Teachers
-    teacher_list = []
     if config.teacher_type == 'Inception':
         for teacher in teachers:
             savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
@@ -148,11 +154,26 @@ def RunStudent(model, config, teachers):
             model_t = model_t.to(config.device)
             module_list.append(model_t)
     else:
+        teacher_list = []
+        teacher_val_list = []
         for teacher in teachers:
             savepath = Path('./teachers/'+ config.teacher_type + '_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
             with open(savepath,'rb') as file:
                 pickle_saved = pickle.load(file)
-            teacher_list.append(pickle_saved)
+            
+            for idx, data in enumerate(train_loader):
+                input, target = data
+                X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                logit_t_np = pickle_saved.predict_proba(X_test)
+                logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                teacher_list.append(logit_t)
+
+            for idx, data in enumerate(val_loader):
+                input, target = data
+                X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                logit_t_np = pickle_saved.predict_proba(X_test)
+                logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                teacher_val_list.append(logit_t)
             
     if config.random_init_w:
         teacher_weights = torch.rand(config.teachers, device = config.device)
@@ -172,7 +193,6 @@ def RunStudent(model, config, teachers):
     module_list.to(config.device)
     criterion_list.to(config.device)
     
-    train_loader, val_loader, test_loader = get_loaders(config)
 
     start_training = time.time()
     
@@ -198,13 +218,13 @@ def RunStudent(model, config, teachers):
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, t_list = teacher_list)
         
         if config.learned_kl_w and (epoch) % config.val_epochs == 0:
-            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_list)
+            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_val_list)
         if (epoch) % 100 == 0:
             training_time = time.time() - start_training
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
         elif config.pid == 0:
             training_time = time.time() - start_training
-            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_list)
+            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_val_list)
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
 
         if accuracy > max_accuracy:

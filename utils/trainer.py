@@ -81,9 +81,10 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                     with torch.no_grad():
                         feat_t, logit_t = model_t(input)
                 else:
-                    X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
-                    logit_t_np = t_list[teacher].predict_proba(X_test)
-                    logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                    #X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                    #logit_t_np = t_list[teacher].predict_proba(X_test)
+                    #logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                    logit_t = torch.as_tensor(t_list[teacher], dtype = torch.float, device = config.device)
 
                 loss_div = criterion_div(logit_s, logit_t)
                 teachers_loss[teacher] += loss_div
@@ -106,9 +107,10 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                         feat_t, logit_t = model_t(input)
                         logit_list.append(logit_t)
                 else:
-                    X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
-                    logit_t_np = t_list[teacher].predict_proba(X_test)
-                    logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                    #X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                    #logit_t_np = t_list[teacher].predict_proba(X_test)
+                    #logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                    logit_t = torch.as_tensor(t_list[teacher], dtype = torch.float, device = config.device)
                     logit_list.append(logit_t)
 
             loss_div = criterion_div(logit_s, logit_list)
@@ -126,9 +128,10 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                         feat_t, logit_t = model_t(input)
                         logit_t_list.append(logit_t)
                 else:
-                    X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
-                    logit_t_np = t_list[teacher].predict_proba(X_test)
-                    logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+#                     X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+#                     logit_t_np = t_list[teacher].predict_proba(X_test)
+#                     logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                    logit_t = torch.as_tensor(t_list[teacher], dtype = torch.float, device = config.device)
                     logit_t_list.append(logit_t)
                 
             loss_div_list = []
@@ -189,9 +192,10 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                         with torch.no_grad():
                             feat_t, logit_t = model_t(input)
                     else:
-                        X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
-                        logit_t_np = t_list[teacher].predict_proba(X_test)
-                        logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+#                         X_test = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+#                         logit_t_np = t_list[teacher].predict_proba(X_test)
+#                         logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                        logit_t = torch.as_tensor(t_list[teacher], dtype = torch.float, device = config.device)
                             
                     if len(target.shape) == 1:
                         loss_ce = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
@@ -270,9 +274,10 @@ def validation(epoch, val_loader, module_list, criterion_list, optimizer, config
                 with torch.no_grad():
                     feat_t, logit_t = model_t(input)
             else:
-                X_val = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
-                logit_t_np = t_list[teacher].predict_proba(X_val)
-                logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                #X_val = from_2d_array_to_nested(input.squeeze().cpu().detach().numpy())
+                #logit_t_np = t_list[teacher].predict_proba(X_val)
+                #logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
+                logit_t = torch.as_tensor(t_list[teacher], dtype = torch.float, device = config.device)
                     
             loss_div = criterion_div(logit_s, logit_t)
             teachers_loss[teacher] += loss_div

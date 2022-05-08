@@ -442,7 +442,7 @@ def evaluate_ensemble(test_loader, config):
             insert_SQL(config.teacher_type, config.pid, config.experiment, "Teacher", teacher, type_q, 
                        config.bits, config.distiller, accuracy, "Top 5", accuracy_5, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
 
-        ensemble_result.append(preds_tensor)
+            ensemble_result.append(preds_tensor)
         
     sum_probabilities = torch.stack(ensemble_result).sum(dim=0)
     sum_np = sum_probabilities.cpu().detach().numpy()

@@ -295,7 +295,11 @@ def StudentDistillation(model, config):
     return max_accuracy
 
 def TeacherEvaluation(config):
-    train_loader, val_loader, test_loader = get_loaders(config)
+    if config.teacher_type == 'Inception':
+        _, _, test_loader = get_loaders(config)
+    else:
+        config.batch_size = 10000
+        _, _, test_loader = get_loaders(config)
     evaluate_ensemble(test_loader, config)
 
 

@@ -137,9 +137,9 @@ def get_loaders(config):
 def get_raw_data(config):
 
     train_data, test_data = load_ucr_data(config, use_encoder=False)
-    train_data, val_data = train_data.split(config.val_size)
+    #train_data, val_data = train_data.split(config.val_size)
     
-    return train_data, val_data, test_data
+    return train_data, test_data
 
 def get_kfold_loaders(config):
     train_loaders = []

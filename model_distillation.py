@@ -399,12 +399,12 @@ def BayesianOptimization(config):
     model_s = model_s.to(config.device)
     student_bo = StudentBO(model_s, config)
     
-    bit_1=ChoiceParameter(name="bit_1", values=[14,15,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    bit_2=ChoiceParameter(name="bit_2", values=[14,15,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    bit_3=ChoiceParameter(name="bit_3", values=[14,15,16], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_1=ChoiceParameter(name="layers_1", values=[3,4,5], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_2=ChoiceParameter(name="layers_2", values=[3,4,5], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_3=ChoiceParameter(name="layers_3", values=[3,4,5], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_1=ChoiceParameter(name="bit_1", values=[12,13,14], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_2=ChoiceParameter(name="bit_2", values=[12,13,14], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    bit_3=ChoiceParameter(name="bit_3", values=[12,13,14], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_1=ChoiceParameter(name="layers_1", values=[3], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_2=ChoiceParameter(name="layers_2", values=[3], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
+    layers_3=ChoiceParameter(name="layers_3", values=[3], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
 
     search_space = SearchSpace(parameters=[bit_1, bit_2, bit_3, layers_1, layers_2, layers_3])
     

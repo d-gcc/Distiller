@@ -208,23 +208,32 @@ def RunStudent(model, config, teachers):
     max_accuracy = accuracy = 0
     
     for epoch in range(1, config.epochs + 1):
-        if config.distiller == 'cawpe':
-            train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
-        elif config.distiller == 'kd_rl':
-            reward = train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs, t_list = teacher_list)
-            teacher_probs -= reward * config.lr
-            teacher_probs = torch.softmax(teacher_probs, dim=-1)
+        if config.teacher_type == 'Inception':
+            train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         else:
-            train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, t_list = teacher_list)
+            if config.distiller == 'cawpe':
+                train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs)
+            elif config.distiller == 'kd_rl':
+                reward = train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, teacher_probs, t_list = teacher_list)
+                teacher_probs -= reward * config.lr
+                teacher_probs = torch.softmax(teacher_probs, dim=-1)
+            else:
+                train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config, t_list = teacher_list)
         
         if config.learned_kl_w and (epoch) % config.val_epochs == 0:
-            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_val_list)
+            if config.teacher_type == 'Inception':
+                teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w)
+            else:
+                teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_val_list)
         if (epoch) % 100 == 0:
             training_time = time.time() - start_training
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
         elif config.pid == 0:
             training_time = time.time() - start_training
-            teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_val_list)
+            if config.teacher_type == 'Inception':
+                teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w)
+            else:
+                teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_val_list)
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)
 
         if accuracy > max_accuracy:

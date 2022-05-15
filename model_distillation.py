@@ -222,7 +222,7 @@ def RunStudent(model, config, teachers):
         
         if config.learned_kl_w and (epoch) % config.val_epochs == 0:
             if config.teacher_type == 'Inception':
-                teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w)
+                teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
             else:
                 teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_val_list)
         if (epoch) % 100 == 0:
@@ -231,7 +231,7 @@ def RunStudent(model, config, teachers):
         elif config.pid == 0:
             training_time = time.time() - start_training
             if config.teacher_type == 'Inception':
-                teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w)
+                teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config)
             else:
                 teacher_weights = validation(epoch, val_loader, module_list, criterion_list, optimizer_w, config,t_list = teacher_val_list)
             accuracy = evaluate(test_loader, model_s, config, epoch, training_time)

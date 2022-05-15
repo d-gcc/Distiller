@@ -405,9 +405,9 @@ def BayesianOptimization(config):
     #layers_1=ChoiceParameter(name="layers_1", values=[3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
     #layers_2=ChoiceParameter(name="layers_2", values=[3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
     #layers_3=ChoiceParameter(name="layers_3", values=[3,4], parameter_type=ParameterType.INT,sort_values=True,is_ordered=True)
-    layers_1=FixedParameter(name="layers_1", values=3, parameter_type=ParameterType.INT)
-    layers_2=FixedParameter(name="layers_2", values=3, parameter_type=ParameterType.INT)
-    layers_3=FixedParameter(name="layers_3", values=3, parameter_type=ParameterType.INT)
+    layers_1=FixedParameter(name="layers_1", value=3, parameter_type=ParameterType.INT)
+    layers_2=FixedParameter(name="layers_2", value=3, parameter_type=ParameterType.INT)
+    layers_3=FixedParameter(name="layers_3", value=3, parameter_type=ParameterType.INT)
 
 
     search_space = SearchSpace(parameters=[bit_1, bit_2, bit_3, layers_1, layers_2, layers_3])

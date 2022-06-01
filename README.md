@@ -1,6 +1,6 @@
 # LightTS
 
-Code for the paper LightTS: Lightweight Time Series Classification with Adaptive Ensemble Distillation (under revision)
+Code for the paper LightTS: Lightweight Time Series Classification with Adaptive Ensemble Distillation (under review)
 
 How to run the model:
  * Execute [model_distillation.py](model_distillation.py) specifying the model parameters, for example:

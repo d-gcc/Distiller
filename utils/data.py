@@ -116,11 +116,21 @@ def load_ucr_data(config, use_encoder=True) -> Tuple[InputData, InputData]:
         
         
     else:
-        train_input = InputData(x=torch.from_numpy(train[:, 1:]).unsqueeze(1).float(),
-                                y=torch.from_numpy(y_train))
-        test_input = InputData(x=torch.from_numpy(test[:, 1:]).unsqueeze(1).float(),
-                           y=torch.from_numpy(y_test))
-
+        if config.reduce_data >= 1:
+            train_input = InputData(x=torch.from_numpy(train[:, 1:]).unsqueeze(1).float(),
+                                    y=torch.from_numpy(y_train))
+            test_input = InputData(x=torch.from_numpy(test[:, 1:]).unsqueeze(1).float(),
+                               y=torch.from_numpy(y_test))
+        else:
+            data_slice = int(train.shape[0]*config.reduce_data)
+            train_slice = train[0:data_slice, 1:]
+            y_slice = y_train[0:data_slice]
+            
+            train_input = InputData(x=torch.from_numpy(train_slice).unsqueeze(1).float(),
+                                    y=torch.from_numpy(y_slice))
+            test_input = InputData(x=torch.from_numpy(test[:, 1:]).unsqueeze(1).float(),
+                               y=torch.from_numpy(y_test))
+            
     return train_input, test_input
 
 def get_loaders(config):

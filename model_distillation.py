@@ -44,17 +44,20 @@ def Run_NN_Teacher(model, config):
     for epoch in range(1, config.epochs + 1):
         train_single(epoch, train_loader, model, optimizer, config)
     
-        if (epoch) % 100 == 0:
-            training_time = time.time() - start_training
-            current_accuracy = evaluate(test_loader, model, config, epoch, training_time)
-            
-            if current_accuracy > best_accuracy:
-                best_accuracy = current_accuracy
-                if not os.path.exists('./teachers/'):
-                    os.makedirs('./teachers/')
+        #if (epoch) % 100 == 0:
+        training_time = time.time() - start_training
+        current_accuracy = evaluate(test_loader, model, config, epoch, training_time)
+
+        if current_accuracy > best_accuracy:
+            best_accuracy = current_accuracy
+            if not os.path.exists('./teachers/'):
+                os.makedirs('./teachers/')
+            if config.reduce_data >= 1:
                 model_name = f'Inception_{config.experiment}_{config.init_seed}_teacher.pkl'
-                savepath = "./teachers/" + model_name
-                torch.save(model.state_dict(), savepath)
+            else:
+                model_name = f'Inception_{config.experiment}_{config.reduce_data}_{config.init_seed}_teacher.pkl'
+            savepath = "./teachers/" + model_name
+            torch.save(model.state_dict(), savepath)
 
 
 # In[3]:
@@ -141,7 +144,10 @@ def RunStudent(model, config, teachers):
     # Teachers
     if config.teacher_type == 'Inception':
         for teacher in teachers:
-            savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
+            if config.reduce_data >= 1:
+                savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
+            else:
+                savepath = Path('./teachers/Inception_'+ config.experiment + '_' + str(config.reduce_data) + '_' + str(teacher) + '_teacher.pkl')
             teacher_config = copy.deepcopy(config)
             teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
             teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
@@ -493,13 +499,13 @@ def BayesianOptimization(config):
             exp_df = exp_to_df(bo_experiment)
 
 
-# In[9]:
+# In[ ]:
 
 
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--fff", help="A dummy argument for Jupyter", default="1")
-    parser.add_argument('--experiment', type=str, default='Adiac') 
+    parser.add_argument('--experiment', type=str, default='NonInvasiveFetalECGThorax1') 
 
     # Quantization
     parser.add_argument('--bits', type=int, default=32)
@@ -549,6 +555,9 @@ if __name__ == '__main__':
     parser.add_argument('--val_epochs', type=int, default=1)
     parser.add_argument('--gumbel', type=float, default=1.0)
     parser.add_argument('--cross_validation', type=int, default=5)
+
+    # Few labels
+    parser.add_argument('--reduce_data', type=float, default=0.01)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="2,4,5,7,9")
@@ -629,10 +638,4 @@ if __name__ == '__main__':
 
         model_s = model_s.to(config.device)
         StudentDistillation(model_s, config)
-
-
-# In[ ]:
-
-
-
 

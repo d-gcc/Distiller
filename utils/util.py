@@ -60,7 +60,7 @@ def insert_SQL(model_name, pid, dataset, parameter_desc, parameter, type_q, bits
 def get_free_device():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == 'cuda':
-        os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
+        os.system('nvidia-smi -q -d Memory |grep -A5 GPU|grep Free >tmp')
         memory_available = [int(x.split()[2]) for x in open('tmp', 'r+').readlines()]
         id = np.argmax(memory_available)
         device = device + ':' + str(id)

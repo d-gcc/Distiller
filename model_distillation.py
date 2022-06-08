@@ -44,20 +44,20 @@ def Run_NN_Teacher(model, config):
     for epoch in range(1, config.epochs + 1):
         train_single(epoch, train_loader, model, optimizer, config)
     
-        #if (epoch) % 100 == 0:
-        training_time = time.time() - start_training
-        current_accuracy = evaluate(test_loader, model, config, epoch, training_time)
+        if (epoch) % 100 == 0:
+            training_time = time.time() - start_training
+            current_accuracy = evaluate(test_loader, model, config, epoch, training_time)
 
-        if current_accuracy > best_accuracy:
-            best_accuracy = current_accuracy
-            if not os.path.exists('./teachers/'):
-                os.makedirs('./teachers/')
-            if config.reduce_data >= 1:
-                model_name = f'Inception_{config.experiment}_{config.init_seed}_teacher.pkl'
-            else:
-                model_name = f'Inception_{config.experiment}_{config.reduce_data}_{config.init_seed}_teacher.pkl'
-            savepath = "./teachers/" + model_name
-            torch.save(model.state_dict(), savepath)
+            if current_accuracy > best_accuracy:
+                best_accuracy = current_accuracy
+                if not os.path.exists('./teachers/'):
+                    os.makedirs('./teachers/')
+                if config.reduce_data >= 1:
+                    model_name = f'Inception_{config.experiment}_{config.init_seed}_teacher.pkl'
+                else:
+                    model_name = f'Inception_{config.experiment}_{config.reduce_data}_{config.init_seed}_teacher.pkl'
+                savepath = "./teachers/" + model_name
+                torch.save(model.state_dict(), savepath)
 
 
 # In[3]:
@@ -499,7 +499,7 @@ def BayesianOptimization(config):
             exp_df = exp_to_df(bo_experiment)
 
 
-# In[ ]:
+# In[9]:
 
 
 if __name__ == '__main__':    

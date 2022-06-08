@@ -32,7 +32,7 @@ from sktime.datatypes._panel._convert import from_2d_array_to_nested
 import pickle
 
 
-# In[3]:
+# In[2]:
 
 
 def Run_NN_Teacher(model, config):
@@ -57,7 +57,7 @@ def Run_NN_Teacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[2]:
+# In[3]:
 
 
 def Run_SK_Teacher(config):
@@ -208,7 +208,7 @@ def RunStudent(model, config, teachers):
     max_accuracy = accuracy = 0
     
     for epoch in range(1, config.epochs + 1):
-        if config.teacher_type == 'Inception':
+        if config.teacher_type == 'Inception' and config.distiller == 'kd':
             train_distilled(epoch, train_loader, module_list, criterion_list, optimizer, config)
         else:
             if config.distiller == 'cawpe':
@@ -499,7 +499,7 @@ def BayesianOptimization(config):
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--fff", help="A dummy argument for Jupyter", default="1")
-    parser.add_argument('--experiment', type=str, default='SyntheticControl') 
+    parser.add_argument('--experiment', type=str, default='Adiac') 
 
     # Quantization
     parser.add_argument('--bits', type=int, default=32)

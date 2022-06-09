@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -32,7 +32,7 @@ from sktime.datatypes._panel._convert import from_2d_array_to_nested
 import pickle
 
 
-# In[2]:
+# In[ ]:
 
 
 def Run_NN_Teacher(model, config):
@@ -52,15 +52,15 @@ def Run_NN_Teacher(model, config):
                 best_accuracy = current_accuracy
                 if not os.path.exists('./teachers/'):
                     os.makedirs('./teachers/')
-                if config.reduce_data >= 1:
-                    model_name = f'Inception_{config.experiment}_{config.init_seed}_teacher.pkl'
-                else:
-                    model_name = f'Inception_{config.experiment}_{config.reduce_data}_{config.init_seed}_teacher.pkl'
+                #if config.reduce_data >= 1:
+                model_name = f'Inception_{config.experiment}_{config.init_seed}_teacher.pkl'
+                #else:
+                #    model_name = f'Inception_{config.experiment}_{config.reduce_data}_{config.init_seed}_teacher.pkl'
                 savepath = "./teachers/" + model_name
                 torch.save(model.state_dict(), savepath)
 
 
-# In[3]:
+# In[ ]:
 
 
 def Run_SK_Teacher(config):
@@ -101,7 +101,7 @@ def Run_SK_Teacher(config):
         pickle.dump(classifier,file)
 
 
-# In[4]:
+# In[ ]:
 
 
 def RunStudent(model, config, teachers):
@@ -147,7 +147,8 @@ def RunStudent(model, config, teachers):
             if config.reduce_data >= 1:
                 savepath = Path('./teachers/Inception_' + config.experiment + '_' + str(teacher) + '_teacher.pkl')
             else:
-                savepath = Path('./teachers/Inception_'+ config.experiment + '_' + str(config.reduce_data) + '_' + str(teacher) + '_teacher.pkl')
+                savepath = Path('./teachers/Inception_' + config.teacher_model + '_' + str(teacher) + '_teacher.pkl')
+            
             teacher_config = copy.deepcopy(config)
             teacher_config.bit1 = teacher_config.bit2 = teacher_config.bit3 = config.bits
             teacher_config.layer1 = teacher_config.layer2 = teacher_config.layer3 = 3
@@ -248,7 +249,7 @@ def RunStudent(model, config, teachers):
     return max_accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[5]:
+# In[ ]:
 
 
 def remove_elements(x):
@@ -318,7 +319,7 @@ def TeacherEvaluation(config):
     evaluate_ensemble(test_loader, config)
 
 
-# In[6]:
+# In[ ]:
 
 
 class StudentBO():
@@ -370,7 +371,7 @@ def initialize_experiment(experiment,initialization):
     return experiment.fetch_data()
 
 
-# In[7]:
+# In[ ]:
 
 
 class MetricAccuracy(Metric):
@@ -403,7 +404,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[8]:
+# In[ ]:
 
 
 def BayesianOptimization(config):
@@ -499,7 +500,7 @@ def BayesianOptimization(config):
             exp_df = exp_to_df(bo_experiment)
 
 
-# In[9]:
+# In[ ]:
 
 
 if __name__ == '__main__':    
@@ -558,6 +559,8 @@ if __name__ == '__main__':
 
     # Few labels
     parser.add_argument('--reduce_data', type=float, default=0.01)
+    parser.add_argument('--teacher_model', type=str, default='NonInvasiveFetalECGThorax2')
+    parser.add_argument('--remove_ce', type=str2bool, default=True)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="2,4,5,7,9")
@@ -588,6 +591,9 @@ if __name__ == '__main__':
         config.leaving_weights = False
         config.avoid_mult = False
 
+    if config.reduce_data < 1 and config.remove_ce == True:
+        config.w_ce = 0
+        
     df = pd.read_csv('TimeSeries.csv',header=None)
     num_classes = int(df[(df == config.experiment).any(axis=1)][1])
     if num_classes == 2:

@@ -74,6 +74,9 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
         loss_cls = criterion_cls(logit_s, target.argmax(dim=-1))
         
         if config.distiller == 'kd':
+            if config.student_labels == "Teacher":
+                ensemble_labels = []
+                
             for teacher in range(0,config.teachers):
                 
                 if config.teacher_type == 'Inception':
@@ -86,6 +89,13 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                     #logit_t = torch.as_tensor(logit_t_np, dtype = torch.float, device = config.device)
                     logit_t = torch.as_tensor(t_list[teacher], dtype = torch.float, device = config.device)
 
+                if config.student_labels == "Teacher":
+                    if len(target.shape) == 1:
+                        preds = torch.sigmoid(logit_t)
+                    else:
+                        preds = torch.softmax(logit_t, dim=-1)
+                    ensemble_labels.append(preds)
+                    
                 loss_div = criterion_div(logit_s, logit_t)
                 teachers_loss[teacher] += loss_div
                 batch_loss += loss_div
@@ -96,6 +106,12 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
                 #with torch.no_grad():
                 teacher_losses, ensemble_weights = model_weights(teachers_loss,train=True)
                 ensemble_loss = torch.sum(teacher_losses)
+            
+            if config.student_labels == "Teacher":
+                sum_probabilities = torch.stack(ensemble_labels).sum(dim=0)
+                sum_np = sum_probabilities.cpu().detach().numpy()
+
+                _,pred_teacher = _to_1d_binary(sum_np, sum_np)
             
         elif config.distiller == 'kd_baseline':
             logit_list = []
@@ -211,11 +227,17 @@ def train_distilled(epoch, train_loader, module_list, criterion_list, optimizer,
             ensemble_loss = torch.sum(teachers_loss)
             
         loss_kd = 0
-              
-        if len(target.shape) == 1:
-            loss_cls = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
+        
+        if config.student_labels == "Teacher":
+            if len(target.shape) == 1:
+                loss_cls = F.binary_cross_entropy_with_logits(logit_s, pred_teacher.unsqueeze(-1).float(), reduction='mean')
+            else:
+                loss_cls = F.cross_entropy(logit_s, torch.from_numpy(pred_teacher).to(config.device), reduction='mean')    
         else:
-            loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')       
+            if len(target.shape) == 1:
+                loss_cls = F.binary_cross_entropy_with_logits(logit_s, target.unsqueeze(-1).float(), reduction='mean')
+            else:
+                loss_cls = F.cross_entropy(logit_s, target.argmax(dim=-1), reduction='mean')       
 
         if config.w_kl == -1:
             loss = config.w_ce * loss_cls + config.teachers * ensemble_loss + config.w_other * loss_kd

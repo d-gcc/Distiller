@@ -560,7 +560,7 @@ if __name__ == '__main__':
     # Few labels
     parser.add_argument('--reduce_data', type=float, default=0.01)
     parser.add_argument('--teacher_model', type=str, default='NonInvasiveFetalECGThorax2')
-    parser.add_argument('--remove_ce', type=str2bool, default=True)
+    parser.add_argument('--student_labels', type=str, default="True", choices=['True', 'False','Teacher'])
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="2,4,5,7,9")
@@ -591,7 +591,7 @@ if __name__ == '__main__':
         config.leaving_weights = False
         config.avoid_mult = False
 
-    if config.reduce_data < 1 and config.remove_ce == True:
+    if config.reduce_data < 1 and config.student_labels == "False":
         config.w_ce = 0
         
     df = pd.read_csv('TimeSeries.csv',header=None)

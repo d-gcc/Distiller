@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import argparse, torch, copy, os, time, numpy as np, pandas as pd
@@ -14,7 +14,7 @@ from utils.data import get_loaders, get_raw_data
 from utils.util import str2bool, get_free_device 
 from utils.inception import InceptionModel
 from utils.distiller import DistillKL, KDEnsemble, TeacherWeights
-from utils.trainer import train_single, train_distilled, validation, evaluate, evaluate_ensemble
+from utils.trainer import train_single, train_distilled, validation, evaluate, evaluate_ensemble, student_postq
 from utils.CAWPE import train_probabilities
 
 from ax import *
@@ -32,7 +32,7 @@ from sktime.datatypes._panel._convert import from_2d_array_to_nested
 import pickle
 
 
-# In[ ]:
+# In[2]:
 
 
 def Run_NN_Teacher(model, config):
@@ -60,7 +60,7 @@ def Run_NN_Teacher(model, config):
                 torch.save(model.state_dict(), savepath)
 
 
-# In[ ]:
+# In[3]:
 
 
 def Run_SK_Teacher(config):
@@ -101,7 +101,7 @@ def Run_SK_Teacher(config):
         pickle.dump(classifier,file)
 
 
-# In[ ]:
+# In[4]:
 
 
 def RunStudent(model, config, teachers):
@@ -246,10 +246,15 @@ def RunStudent(model, config, teachers):
         if accuracy > max_accuracy:
             max_accuracy = accuracy
             
+            if (epoch) % 100 == 0 and config.save_student == True and config.bit3 == 33:
+                model_name = f'Inception_{config.experiment}_{config.bit1}_student.pkl'
+                savepath = "./teachers/" + model_name
+                torch.save(module_list[0].state_dict(), savepath)
+            
     return max_accuracy, dict(zip(teachers, teacher_weights))
 
 
-# In[ ]:
+# In[5]:
 
 
 def remove_elements(x):
@@ -318,8 +323,12 @@ def TeacherEvaluation(config):
         _, _, test_loader = get_loaders(config)
     evaluate_ensemble(test_loader, config)
 
+def StudentPostQuantization(config):
+    _, _, test_loader = get_loaders(config)
+    student_postq(test_loader, config)
 
-# In[ ]:
+
+# In[6]:
 
 
 class StudentBO():
@@ -371,7 +380,7 @@ def initialize_experiment(experiment,initialization):
     return experiment.fetch_data()
 
 
-# In[ ]:
+# In[7]:
 
 
 class MetricAccuracy(Metric):
@@ -404,7 +413,7 @@ class MetricCost(Metric):
         return Data(df=pd.DataFrame.from_records(records))
 
 
-# In[ ]:
+# In[8]:
 
 
 def BayesianOptimization(config):
@@ -500,19 +509,19 @@ def BayesianOptimization(config):
             exp_df = exp_to_df(bo_experiment)
 
 
-# In[ ]:
+# In[9]:
 
 
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--fff", help="A dummy argument for Jupyter", default="1")
-    parser.add_argument('--experiment', type=str, default='NonInvasiveFetalECGThorax1') 
+    parser.add_argument('--experiment', type=str, default='SyntheticControl') 
 
     # Quantization
     parser.add_argument('--bits', type=int, default=32)
-    parser.add_argument('--bit1', type=int, default=13)
-    parser.add_argument('--bit2', type=int, default=12)
-    parser.add_argument('--bit3', type=int, default=8)
+    parser.add_argument('--bit1', type=int, default=2)
+    parser.add_argument('--bit2', type=int, default=2)
+    parser.add_argument('--bit3', type=int, default=2)
     parser.add_argument('--std_dev', type=float, default=0)
     parser.add_argument('--power_two', type=str2bool, default=False)
     parser.add_argument('--additive', type=str2bool, default=False)
@@ -530,8 +539,9 @@ if __name__ == '__main__':
     parser.add_argument('--init_seed', type=int, default=0)
     parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--pid', type=int, default=0)
-    parser.add_argument('--evaluation', type=str, default='student', 
-                        choices=['teacher', 'student', 'teacher_ensemble', 'student_bo', 'student_bo_simple'])
+    parser.add_argument('--evaluation', type=str, default='student_post_distill', 
+                        choices=['teacher', 'student', 'teacher_ensemble', 'student_bo', 
+                                 'student_bo_simple', 'student_post', 'student_post_distill'])
     parser.add_argument('--teacher_type', type=str, default='Inception',
                         choices=['Inception', 'CIF', 'Forest', 'Proximity', 'TDE', 'Rocket', 'Matrix'])
     parser.add_argument('--bo_init', type=int, default=10)
@@ -558,9 +568,10 @@ if __name__ == '__main__':
     parser.add_argument('--cross_validation', type=int, default=5)
 
     # Few labels
-    parser.add_argument('--reduce_data', type=float, default=0.01)
+    parser.add_argument('--reduce_data', type=float, default=1)
     parser.add_argument('--teacher_model', type=str, default='NonInvasiveFetalECGThorax2')
     parser.add_argument('--student_labels', type=str, default="True", choices=['True', 'False','Teacher'])
+    parser.add_argument('--save_student', type=str2bool, default=True)
     
     parser.add_argument('--specific_teachers', type=str2bool, default=False)
     parser.add_argument('--list_teachers', type=str, default="2,4,5,7,9")
@@ -644,4 +655,25 @@ if __name__ == '__main__':
 
         model_s = model_s.to(config.device)
         StudentDistillation(model_s, config)
+    elif config.evaluation == 'student_post':
+        StudentPostQuantization(config)
+    elif config.evaluation == 'student_post_distill':
+        savepath = Path('./teachers/Inception_' + config.experiment + '_33_student.pkl')
+        student_config = copy.deepcopy(config)
+        student_config.layer1 = student_config.layer2 = student_config.layer3 = 3
+        model_s = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
+                       bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
+                       num_pred_classes=config.num_classes,config=student_config)
+
+        model_s.load_state_dict(torch.load(savepath, map_location=config.device))
+        model_s.eval()
+        model_s = model_s.to(config.device)
+        config.w_ce = 0
+        StudentDistillation(model_s, config)
+
+
+# In[ ]:
+
+
+
 

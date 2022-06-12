@@ -481,3 +481,44 @@ def evaluate_ensemble(test_loader, config):
                accuracy, "Top 5", accuracy_5, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
 
     return accuracy
+
+def student_postq(test_loader, config):
+
+    savepath = Path('./teachers/Inception_' + config.experiment + '_33_student.pkl')
+    student_config = copy.deepcopy(config)
+    student_config.layer1 = student_config.layer2 = student_config.layer3 = 3
+    model_s = InceptionModel(num_blocks=3, in_channels=1, out_channels=[10,20,40],
+                   bottleneck_channels=32, kernel_sizes=41, use_residuals=True,
+                   num_pred_classes=config.num_classes,config=student_config)
+
+    model_s.load_state_dict(torch.load(savepath, map_location=config.device))
+    model_s.eval()
+    model_s = model_s.to(config.device)
+
+    with torch.no_grad():
+        true_list, preds_list = [], []
+        for x, y in test_loader:
+            x, y = x.to(config.device), y.to(config.device)
+            with torch.no_grad():
+                true_list.append(y.cpu().detach().numpy())
+                _, preds = model_s(x)
+                if len(y.shape) == 1:
+                    preds = torch.sigmoid(preds)
+                else:
+                    preds = torch.softmax(preds, dim=-1)
+                preds_list.append(preds.cpu().detach().numpy())
+
+        true_np, preds_np = np.concatenate(true_list), np.concatenate(preds_list)
+        accuracy = accuracy_score(*_to_1d_binary(true_np, preds_np), normalize=True)
+        true_1d,_ = _to_1d_binary(true_np, preds_np)
+
+        try:
+            accuracy_5 = top_k_accuracy_score(true_1d, preds_np, normalize=True, k=5)
+        except Exception as e: # Undefinition for few classes
+            accuracy_5 = -1
+        
+    type_q = "Post quantization: " + str(config.bit1) + "-" + str(config.bit2) + "-" + str(config.bit3)
+    insert_SQL(config.teacher_type, config.pid, config.experiment, "Quantization", 0, type_q, config.bits, config.distiller,
+               accuracy, "Top 5", accuracy_5, "Metric 2", 0, "Metric 3", 0, "Metric 4", 0) 
+
+    return accuracy
